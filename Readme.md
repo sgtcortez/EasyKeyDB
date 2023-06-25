@@ -1,6 +1,8 @@
 # Sumamry 
 
 - [Introduction](#Introduction)
+- [Configuration](#Configuration)
+    - [Clang](#Clang)
 - [References](#References)
     + [Files per partition/directory](#files-per-partitiondirectory)
     + [sendfile zero copy](#sendfile-zero-copy)
@@ -13,6 +15,40 @@ For now, this project is just for learning purposes.
 
 With this project, I want to make some efforts to really learn C++ programming language.  
 Make some nice networking code and operating systems code.  
+
+# Configuration
+
+In the sections above, there are some explanations and mini tutorials in how to configure and run this project.  
+Also, we follow the **Clang Format** coding standard ... So, if you write some code that does not follow this guideline, it will break in the **github action**.
+
+- ## CMake
+
+    I do prefer to use **Makefiles** to compile a simple C/C++ code ...   
+    But, sometimes, when we want to make some portable code, it is not a good choice ...  
+
+    So, to make this code portable, I choose **Cmake** for  this project ...  
+
+    [Here](https://cmake.org/cmake/help/latest/guide/tutorial/index.html) is some tutorial provided by the Company.   
+    [Here](https://github.com/ttroy50/cmake-examples) is some really nice examples
+
+- ## Clang
+
+    I am a fan of LLVM tools, so, if you prefer clang over gcc or msvc, build this project will be easier.
+
+    - [ClangD](https://releases.llvm.org/8.0.0/tools/clang/tools/extra/docs/clangd/index.html)
+
+        So, here I am using **ClangD**.
+        The file **compile_flags.txt** at the root directory tells the **clangd server** how the project is built.  
+
+    - [Clang-Tidy](https://clang.llvm.org/extra/clang-tidy/)  
+
+        We are using the clang-tidy to find bugs and typical programming errors.
+
+    - [Clang-Format](https://clang.llvm.org/docs/ClangFormat.html)
+
+        We have an github action which checks if the code follows the **LLVM** coding standard.    
+        You can check by issuing the command: `clang-format -style=llvm <file>`
+
 
 # References
 
