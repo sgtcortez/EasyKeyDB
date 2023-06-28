@@ -17,7 +17,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # Also worth remembering that it will create a variable called ${SOURCES}
 set(
     SOURCES
+    source/know_nothing.cpp
     source/easykey.cpp
+    main.cpp
+
 )
 
 # Add an executable that will link all our cpp files to one
