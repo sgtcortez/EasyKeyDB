@@ -31,6 +31,14 @@ Also, we follow the **Clang Format** coding standard ... So, if you write some c
     [Here](https://cmake.org/cmake/help/latest/guide/tutorial/index.html) is some tutorial provided by the Company.   
     [Here](https://github.com/ttroy50/cmake-examples) is some really nice examples
 
+    For basic compile and run, you can use at the project root directory:  
+    ```shell
+    cmake -B build/ -DCMAKE_BUILD_TYPE=Debug  
+    cmake --build build/
+    ```
+
+    This will build the project using debug flags.
+
 - ## Clang
 
     I am a fan of LLVM tools, so, if you prefer clang over gcc or msvc, build this project will be easier.
