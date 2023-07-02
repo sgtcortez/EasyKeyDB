@@ -83,7 +83,8 @@ uint64_t deserialize(uint8_t *array, uint8_t number_size)
     | Byte | Description |
     | :-: | :- |
     | **`0x00`** | Is always 0x01. Specify the protocol version |
-    | **`0x01-0x05`** ... N | The number of bytes used by the messages. Maximum message size: 2²²-1(4MiB) |
+    | **`0x01`** | Indicate the number of messages that are present in the packet |
+    | **`0x02-0x06`** ... N | The number of bytes used by the messages. Maximum message size: 2²²-1(4MiB) |
 
     This is quite good, because there is no overhead to add control characteres ... 
     And also, this allows us to create the buffers with the dedicated size for them.   
@@ -91,7 +92,7 @@ uint64_t deserialize(uint8_t *array, uint8_t number_size)
     It's just a *"byte array"*.
 
     So for example, the following byte array message:    
-    `0x01 0x02 0x00 0x00 0x00 0x05 0x00 0x00 0x00 0x30 0x31 0x40 0x41 0x42 0x43 0x44`    
+    `0x01 0x02 0x02 0x00 0x00 0x00 0x05 0x00 0x00 0x00 0x30 0x31 0x40 0x41 0x42 0x43 0x44`    
     
     The message goes until the last byte of the stream.
 
@@ -99,21 +100,22 @@ uint64_t deserialize(uint8_t *array, uint8_t number_size)
     | Index | Byte | Description |
     | :-: | :-: | :- |
     | 0 | **`0x01`** | The "protocol" version |
-    | 1 | **`0x02`** | The *"first"* byte of the four byte size of the first message |     
-    | 2 | **`0x00`** | The *"second"* byte of the four byte size of the first message |     
-    | 3 | **`0x00`** | The *"third"* byte of the four byte size of the first message |     
-    | 4 | **`0x00`** | The *"fourth"* byte of the four byte size of the first message |     
-    | 5 | **`0x05`** | The *"first"* byte of the four byte size of the second message |     
-    | 6 | **`0x00`** | The *"second"* byte of the four byte size of the second message |     
-    | 7 | **`0x00`** | The *"third"* byte of the four byte size of the second message |     
-    | 8 | **`0x00`** | The *"fourth"* byte of the four byte size of the second message |     
-    | 9 | **`0x30`** | The *"first byte"* of *"two"* bytes from the *"first"* the message |
-    | 10 | **`0x31`** | The *"second byte"* of *"two"* bytes from the *"first"* message |
-    | 11 | **`0x40`** | the *"first byte"* of *"five"* bytes from the *"second"* message |
-    | 12 | **`0x41`** | the *"second byte"* of *"five"* bytes from the *"second"* message |
-    | 13 | **`0x42`** | the *"third byte"* of *"five"* bytes from the *"second"* message |
-    | 14 | **`0x43`** | the *"fourth byte"* of *"five"* bytes from the *"second"* message |
-    | 15 | **`0x44`** | the *"fifth byte"* of *"five"* bytes from the *"second"* message |
+    | 1 | **`0x02`** | The *"number"* of messages that are present in this packet |
+    | 2 | **`0x02`** | The *"first"* byte of the four byte size of the first message |     
+    | 3 | **`0x00`** | The *"second"* byte of the four byte size of the first message |     
+    | 4 | **`0x00`** | The *"third"* byte of the four byte size of the first message |     
+    | 5 | **`0x00`** | The *"fourth"* byte of the four byte size of the first message |     
+    | 6 | **`0x05`** | The *"first"* byte of the four byte size of the second message |     
+    | 7 | **`0x00`** | The *"second"* byte of the four byte size of the second message |     
+    | 8 | **`0x00`** | The *"third"* byte of the four byte size of the second message |     
+    | 9 | **`0x00`** | The *"fourth"* byte of the four byte size of the second message |     
+    | 10 | **`0x30`** | The *"first byte"* of *"two"* bytes from the *"first"* the message |
+    | 11 | **`0x31`** | The *"second byte"* of *"two"* bytes from the *"first"* message |
+    | 12 | **`0x40`** | the *"first byte"* of *"five"* bytes from the *"second"* message |
+    | 13 | **`0x41`** | the *"second byte"* of *"five"* bytes from the *"second"* message |
+    | 14 | **`0x42`** | the *"third byte"* of *"five"* bytes from the *"second"* message |
+    | 15 | **`0x43`** | the *"fourth byte"* of *"five"* bytes from the *"second"* message |
+    | 16 | **`0x44`** | the *"fifth byte"* of *"five"* bytes from the *"second"* message |
 
     You can send a batch of messages, and also, just one message. It always depends on your usage.
 

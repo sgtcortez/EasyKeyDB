@@ -1,7 +1,9 @@
 #pragma once
 
 #include <array>
+#include <bits/stdint-uintn.h>
 #include <cstdint>
+#include <vector>
 
 namespace knownothing {
 
@@ -21,5 +23,7 @@ std::array<std::uint8_t, 4> serialize(std::uint32_t number);
 enum Protocol : std::uint8_t {
   V1 = 0x01,
 };
+
+bool check_integrity(std::vector<uint8_t> input);
 
 }; // namespace knownothing

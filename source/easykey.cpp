@@ -4,6 +4,7 @@
 #include <array>
 #include <bits/stdint-uintn.h>
 #include <cstdint>
+#include <iostream>
 #include <regex>
 #include <string>
 
@@ -18,24 +19,51 @@ static bool is_key_valid(const string &key) {
   return !key.empty() && !regex_search(key, invalid_key_regex);
 }
 
-RequestMessage RequestMessage::read(uint8_t *input) {
+RequestMessage RequestMessage::read(vector<uint8_t> input) {
+
+  if (!check_integrity(input)) {
+    cerr << "The message does not follow the Know Nothing v1 Protocol "
+            "Specification!"
+         << endl;
+    throw "Message does not follow Know Nothing v1 protocol specfication!";
+  }
+
+  uint32_t message_index = 0;
 
   /**
    * First byte is the protocol version
    */
-  const auto protocol = static_cast<knownothing::Protocol>(input[0]);
+  const auto protocol =
+      static_cast<knownothing::Protocol>(input[message_index++]);
+
+  const auto messages_number = input[message_index++];
+  switch (messages_number) {
+  case 1:
+    // when is a read operation, only a message will be provided
+  case 2:
+    // when is a write operation, two messages will be provided
+    break;
+  default:
+    cerr << "Invalid message! To read a message must be provided, to write, "
+            "two messages must be provided!"
+         << endl;
+  }
 
   /**
    * Next four bytes are the bytes that compose the first message 4 byte size
    */
   const auto first_message_size =
-      deserialize({input[1], input[2], input[3], input[4]});
+      deserialize({input[message_index++], input[message_index++],
+                   input[message_index++], input[message_index++]});
 
   /**
    * From the fifth byte until first messge size, its the first message
    * https://cplusplus.com/reference/string/string/string/
    */
-  const auto first_message = string(((char *)input) + 5, first_message_size);
+  const auto first_message =
+      string(((char *)input.data()) + message_index, first_message_size);
+
+  message_index += first_message_size;
 
   /**
    * Check if the first message is a valid key value
@@ -49,9 +77,9 @@ RequestMessage RequestMessage::read(uint8_t *input) {
    * After the first message, there are four bytes that compose the second
    * message size
    */
-  const auto second_message_size = deserialize(
-      {input[5 + first_message_size], input[5 + first_message_size + 1],
-       input[5 + first_message_size + 2], input[5 + first_message_size + 3]});
+  const auto second_message_size =
+      deserialize({input[message_index++], input[message_index++],
+                   input[message_index++], input[message_index++]});
 
   /**
    * Creates the vector for the second message.
@@ -63,7 +91,7 @@ RequestMessage RequestMessage::read(uint8_t *input) {
   second_message.reserve(second_message_size);
 
   // pointer arithmetic to point to the beginning of the second message
-  uint8_t *second_message_array = input + (5 + first_message_size + 4);
+  uint8_t *second_message_array = input.data() + message_index;
 
   for (uint32_t index = 0; index < second_message_size; index++) {
     second_message.push_back(second_message_array[index]);
@@ -78,6 +106,9 @@ const vector<uint8_t> ResponseMessage::write() const {
   // put the know nothing protocol version at the first byte
   // byte 0
   response.push_back(kn_protocol);
+
+  // Store the number of messages
+  response.push_back(2);
 
   // status code uses only one byte of the four bytes size limit
   // bytes 1 - 4
