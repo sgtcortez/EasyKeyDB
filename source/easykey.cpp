@@ -18,24 +18,40 @@ static bool is_key_valid(const string &key) {
   return !key.empty() && !regex_search(key, invalid_key_regex);
 }
 
-RequestMessage RequestMessage::read(uint8_t *input) {
+RequestMessage RequestMessage::read(vector<uint8_t> input) {
+
+  if (!check_integrity(input)) {
+    throw "Message does not follow Know Nothing v1 protocol specfication!";
+  }
+
+  uint32_t message_index = 0;
 
   /**
    * First byte is the protocol version
    */
-  const auto protocol = static_cast<knownothing::Protocol>(input[0]);
+  const auto protocol =
+      static_cast<knownothing::Protocol>(input[message_index++]);
+
+  const auto messages_number = input[message_index++];
+  if (messages_number != 2) {
+    throw "2 exact messages must be provided!";
+  }
 
   /**
    * Next four bytes are the bytes that compose the first message 4 byte size
    */
   const auto first_message_size =
-      deserialize({input[1], input[2], input[3], input[4]});
+      deserialize({input[message_index++], input[message_index++],
+                   input[message_index++], input[message_index++]});
 
   /**
    * From the fifth byte until first messge size, its the first message
    * https://cplusplus.com/reference/string/string/string/
    */
-  const auto first_message = string(((char *)input) + 5, first_message_size);
+  const auto first_message =
+      string(((char *)input.data()) + message_index, first_message_size);
+
+  message_index += first_message_size;
 
   /**
    * Check if the first message is a valid key value
@@ -49,9 +65,9 @@ RequestMessage RequestMessage::read(uint8_t *input) {
    * After the first message, there are four bytes that compose the second
    * message size
    */
-  const auto second_message_size = deserialize(
-      {input[5 + first_message_size], input[5 + first_message_size + 1],
-       input[5 + first_message_size + 2], input[5 + first_message_size + 3]});
+  const auto second_message_size =
+      deserialize({input[message_index++], input[message_index++],
+                   input[message_index++], input[message_index++]});
 
   /**
    * Creates the vector for the second message.
@@ -63,7 +79,7 @@ RequestMessage RequestMessage::read(uint8_t *input) {
   second_message.reserve(second_message_size);
 
   // pointer arithmetic to point to the beginning of the second message
-  uint8_t *second_message_array = input + (5 + first_message_size + 4);
+  uint8_t *second_message_array = input.data() + message_index;
 
   for (uint32_t index = 0; index < second_message_size; index++) {
     second_message.push_back(second_message_array[index]);

@@ -15,7 +15,7 @@ public:
    * NOTE: The @param input must be a valid Know Nothing protocol message,
    * otherwise, we will have an undefined behavior
    */
-  static RequestMessage read(std::uint8_t *input);
+  static RequestMessage read(std::vector<std::uint8_t> input);
   const knownothing::Protocol kn_protocol;
   const std::string key;
   const std::vector<std::uint8_t> value;

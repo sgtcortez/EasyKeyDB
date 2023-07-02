@@ -16,6 +16,7 @@ int main() {
   // Client sends this data
   uint8_t byte_array[] = {
       0x01, // knownothing protocol version
+      0x01, // The number of messages in the content
       0x04, // The first message size first byte
       0x00, // The first message size second byte
       0x00, // The first message size third byte
@@ -37,24 +38,11 @@ int main() {
       's'   // The second message seventh byte
   };
 
-  const auto message = RequestMessage::read(byte_array);
+  vector<uint8_t> vec(
+      byte_array, byte_array + (sizeof(byte_array) / sizeof(byte_array[0])));
+
+  const auto message = RequestMessage::read(vec);
   cout << message.key << endl;
 
-  vector<uint8_t> temp;
-  for (int index = 0; index < 66000; index++) {
-    temp.push_back(index);
-  }
-
-  const auto responseMessage =
-      ResponseMessage{Protocol::V1, ResponseMessage::StatusCode::OK, temp};
-
-  const auto responseBytes = responseMessage.write();
-  for (unsigned int index = 0; index < responseBytes.size(); index++) {
-    uint8_t v = responseBytes[index];
-
-    cout << "Index: [" << to_string(index) << "]"
-         << " - " << to_string(v) << endl;
-  }
-  cout << endl;
   return 0;
 }
