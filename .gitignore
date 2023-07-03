@@ -31,5 +31,8 @@
 *.out
 *.app
 
-# build directories
+# build directories and idea/editor config files
 build/*
+.vscode/*
+*.vscode/*
+
