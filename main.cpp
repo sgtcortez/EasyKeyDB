@@ -42,7 +42,15 @@ int main() {
       byte_array, byte_array + (sizeof(byte_array) / sizeof(byte_array[0])));
 
   const auto message = RequestMessage::read(vec);
-  cout << message.key << endl;
+  if (message) {
+    cout << "Key:\"" << message->key << "\"" << endl;
+    cout << "Value: \"";
+    for (auto &s : message->value)
+      cout << s;
+    cout << "\"" << endl;
+  } else {
+    cerr << "Message is invalid!" << endl;
+  }
 
   return 0;
 }

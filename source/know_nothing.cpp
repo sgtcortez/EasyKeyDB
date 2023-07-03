@@ -67,5 +67,10 @@ bool knownothing::check_integrity(vector<uint8_t> input) {
   }
   // validates if the messages numbers and the messages with their sizes matches
   // with the input size
-  return current_position == input.size();
+  const auto valid = current_position == input.size();
+  if (!valid) {
+    cerr << "Messages size do not follow the specificated size!" << endl;
+  }
+
+  return valid;
 }

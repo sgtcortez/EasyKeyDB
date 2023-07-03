@@ -5,6 +5,7 @@
 #include <bits/stdint-uintn.h>
 #include <cstdint>
 #include <iostream>
+#include <memory>
 #include <regex>
 #include <string>
 
@@ -19,13 +20,11 @@ static bool is_key_valid(const string &key) {
   return !key.empty() && !regex_search(key, invalid_key_regex);
 }
 
-RequestMessage RequestMessage::read(vector<uint8_t> input) {
+unique_ptr<RequestMessage> RequestMessage::read(vector<uint8_t> input) {
 
   if (!check_integrity(input)) {
-    cerr << "The message does not follow the Know Nothing v1 Protocol "
-            "Specification!"
-         << endl;
-    throw "Message does not follow Know Nothing v1 protocol specfication!";
+    // Would be nice to use optional ...
+    return unique_ptr<RequestMessage>(nullptr);
   }
 
   uint32_t message_index = 0;
@@ -47,6 +46,8 @@ RequestMessage RequestMessage::read(vector<uint8_t> input) {
     cerr << "Invalid message! To read a message must be provided, to write, "
             "two messages must be provided!"
          << endl;
+    // Would be nice to use optional ...
+    return unique_ptr<RequestMessage>(nullptr);
   }
 
   /**
@@ -69,8 +70,12 @@ RequestMessage RequestMessage::read(vector<uint8_t> input) {
    * Check if the first message is a valid key value
    */
   if (!is_key_valid(first_message)) {
-    throw "The key: \"" + first_message + "\" does not follow the regex: \"" +
-        regex_value + "\"";
+    cerr << "The key: \"" + first_message + "\" does not follow the regex: \"" +
+                regex_value + "\""
+         << endl;
+
+    // Would be nice to use optional ...
+    return unique_ptr<RequestMessage>(nullptr);
   }
 
   /**
@@ -97,7 +102,8 @@ RequestMessage RequestMessage::read(vector<uint8_t> input) {
     second_message.push_back(second_message_array[index]);
   }
 
-  return {protocol, first_message, second_message};
+  return unique_ptr<RequestMessage>(
+      new RequestMessage{protocol, first_message, second_message});
 }
 
 const vector<uint8_t> ResponseMessage::write() const {
