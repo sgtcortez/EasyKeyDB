@@ -19,6 +19,7 @@ set(
     SOURCES
     source/know_nothing.cpp
     source/easykey.cpp
+    source/server.cpp
     main.cpp
 
 )

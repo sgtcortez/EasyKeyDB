@@ -1,56 +1,121 @@
 #include "easykey.hpp"
 #include "know_nothing.hpp"
+#include "server.hpp"
 
 #include <bits/stdint-uintn.h>
 #include <cstdint>
 #include <iostream>
+#include <unordered_map>
 #include <string>
 #include <vector>
+#include <csignal>
 
 using namespace easykey;
 using namespace std;
 using namespace knownothing;
 
-int main() {
+/**
+ * The signal handler 
+ * man 7 signal for standard signals
+*/
+void signal_handler(int32_t signal);
 
-  // Client sends this data
-  uint8_t byte_array[] = {
-      0x01, // knownothing protocol version
-      0x02, // The number of messages in the content
-      0x04, // The first message size first byte
-      0x00, // The first message size second byte
-      0x00, // The first message size third byte
-      0x00, // The first message size fourth byte
-      'n',  // The first message first byte
-      'a',  // the first message second byte
-      'm',  // The first message third byte
-      'e',  // The first message fourth byte
-      0x07, // The second message size first byte
-      0x00, // The second message size second byte
-      0x00, // The second message size third byte
-      0x00, // The second message size fourth byte
-      'M',  // The second message first byte
-      'a',  // The second message second byte
-      't',  // The second message third byte
-      'h',  // The second message fourth byte
-      'e',  // The second message fifth byte
-      'u',  // The second message sixth byte
-      's'   // The second message seventh byte
-  };
+void gracefully_termination();
 
-  vector<uint8_t> vec(
-      byte_array, byte_array + (sizeof(byte_array) / sizeof(byte_array[0])));
+Server* server_ptr = nullptr;
 
-  const auto message = RequestMessage::read(vec);
-  if (message) {
-    cout << "Key:\"" << message->key << "\"" << endl;
-    cout << "Value: \"";
-    for (auto &s : message->value)
-      cout << s;
-    cout << "\"" << endl;
-  } else {
-    cerr << "Message is invalid!" << endl;
+struct EchoDispatcher : public Dispatcher
+{
+
+  string name() const
+  {
+    return "Echo Dispatcher";
   }
 
+  vector<uint8_t> exchange(vector<uint8_t> client_request)
+  {
+    return client_request;
+  }
+};
+
+struct DemoEasyKeyDispatcher : public Dispatcher
+{
+
+  private: 
+    unordered_map<string, vector<uint8_t>> database;
+
+  public:
+
+    string name() const
+    {
+      return "DemoEasyKeyDispatcher";
+    }
+
+    vector<uint8_t> exchange(vector<uint8_t> client_request)
+    {
+      auto request = RequestMessage::read(client_request);
+
+      if (request == nullptr)
+      {
+          string output_message = "The message does not follow the KnowNothing Specification!";
+          vector<uint8_t> output(output_message.begin(), output_message.end());
+          return ResponseMessage{Protocol::V1, ResponseMessage::SERVER_ERROR, output}.write();        
+      } 
+
+      // If its a read operation, the value will be empty
+      if (request->value.size() == 0) 
+      {
+        // Its a read operationn
+        const auto result = database.find(request->key);
+        if (result == database.end())
+        {
+          string output_message = "Key \"" + request->key + "\" was not found!";
+          vector<uint8_t> output(output_message.begin(), output_message.end());
+          return ResponseMessage{Protocol::V1, ResponseMessage::CLIENT_ERROR, output}.write();
+        }
+        return  ResponseMessage{Protocol::V1, ResponseMessage::OK, result->second}.write();
+      }
+      else 
+      {
+        // its a write operation
+        database[request->key] = request->value;
+        return ResponseMessage{Protocol::V1, ResponseMessage::OK, {'O', 'K', '!'}}.write();
+      }
+  }
+};
+
+
+int main() {
+
+  auto dispatcher = DemoEasyKeyDispatcher();
+  auto server = Server(9000, 10, dispatcher);
+  server.start();
+
+  server_ptr = &server;
+
+  // https://en.cppreference.com/w/cpp/utility/program/signal
+  /**
+   * Register the signals to be handled!
+  */
+  signal(SIGTERM, signal_handler);
+  signal(SIGINT, signal_handler);
+
   return 0;
+}
+
+void signal_handler(int32_t signal)
+{
+  switch (signal) {
+    case SIGINT:
+    case SIGTERM:
+      gracefully_termination();
+      break;
+    default:
+      throw "Signal: " + to_string(signal) + " catched is not being handled!";
+  }
+}
+
+void gracefully_termination()
+{
+  server_ptr->stop();
 }
