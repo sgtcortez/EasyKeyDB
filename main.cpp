@@ -24,20 +24,6 @@ void gracefully_termination();
 
 Server* server_ptr = nullptr;
 
-struct EchoDispatcher : public Dispatcher
-{
-
-  string name() const
-  {
-    return "Echo Dispatcher";
-  }
-
-  vector<uint8_t> exchange(vector<uint8_t> client_request)
-  {
-    return client_request;
-  }
-};
-
 struct DemoEasyKeyDispatcher : public Dispatcher
 {
 
