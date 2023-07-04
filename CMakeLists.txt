@@ -20,6 +20,7 @@ set(
     source/know_nothing.cpp
     source/easykey.cpp
     source/server.cpp
+    source/database.cpp
     main.cpp
 
 )

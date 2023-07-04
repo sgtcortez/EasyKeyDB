@@ -1,6 +1,7 @@
 #include "easykey.hpp"
 #include "know_nothing.hpp"
 #include "server.hpp"
+#include "database.hpp"
 
 #include <bits/stdint-uintn.h>
 #include <cstdint>
@@ -28,7 +29,7 @@ struct DemoEasyKeyDispatcher : public Dispatcher
 {
 
   private: 
-    unordered_map<string, vector<uint8_t>> database;
+    Database database;
 
   public:
 
@@ -52,19 +53,19 @@ struct DemoEasyKeyDispatcher : public Dispatcher
       if (request->value.size() == 0) 
       {
         // Its a read operationn
-        const auto result = database.find(request->key);
-        if (result == database.end())
+        const auto result = database.read(request->key);
+        if (result.empty())
         {
           string output_message = "Key \"" + request->key + "\" was not found!";
           vector<uint8_t> output(output_message.begin(), output_message.end());
           return ResponseMessage{Protocol::V1, ResponseMessage::CLIENT_ERROR, output}.write();
         }
-        return  ResponseMessage{Protocol::V1, ResponseMessage::OK, result->second}.write();
+        return  ResponseMessage{Protocol::V1, ResponseMessage::OK, result}.write();
       }
       else 
       {
         // its a write operation
-        database[request->key] = request->value;
+        database.write(request->key, request->value);
         return ResponseMessage{Protocol::V1, ResponseMessage::OK, {'O', 'K', '!'}}.write();
       }
   }
