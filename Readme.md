@@ -3,6 +3,8 @@
 - [Introduction](#Introduction)
 - [Configuration](#Configuration)
     - [Clang](#Clang)
+- [Under the Hood](#Under-the-Hood)
+- [Running](#Running)
 - [References](#References)
     + [Files per partition/directory](#files-per-partitiondirectory)
     + [sendfile zero copy](#sendfile-zero-copy)
@@ -58,6 +60,37 @@ Also, we follow the **Clang Format** coding standard ... So, if you write some c
         You can check by issuing the command: `clang-format -style=llvm <file>`
 
 
+# Under the Hood
+
+To understand how this program works, and how we can acomplish a reasonable response time, we need to undestand some aspects ...   
+
+- Disks
+
+    Hard Disk Drive and Solid State Disk are slower than main memory when we need to do a **Random Access(i.e: access some portion in the middle of the file)**, because it requires a lot of **disk seeks**.   
+    So, accessing random portions is not performant ...   
+
+    But, in hdd & ssd, they can contain much more memory(this is how they are built. Transistors and related stuff).  
+    So, how we can use the benefits of the both worlds? **Page Cache**. 
+
+- Page Cache
+
+    In Linux, all the **main memory(RAM)** that is not being used, would be wasted ...   
+    But, the operating system is smarter enough ...  
+    To let we do this, so it makes the unused portion of **main memory** as the Page Cache ... 
+
+    Page Cache, is just some portion of files(bytes) that are frequently in use.    
+    So, instead of doing a **random access** to the file, we do this to the page cache ...   
+    Which, in turns, turns out to be the **main memory** ...
+
+
+
+# Running
+
+To run this project, since we havely use the file system, and not too much main memory.   
+Would be nice to run in an enviroment with a lot of available ram(to make more and more **page caches**) and a huge fast filesystem and disk.   
+With this, we can use the benefit of zero copy(sendfile) with **page caches**.   
+We, as **Kafka** can be benefit from Page caches, since the most frequently used *pages* will be stored at memory ram, our time access reduces drastically.
+
 # References
 
 Above, some references that helped to create this project.   
@@ -72,3 +105,5 @@ Above, some references that helped to create this project.
 
     Kafka stores topic messages at disk, and still is very performant ...   
     So, their ideas can help me.
+
+- # [Why is Kafka so fast if it uses disk](https://andriymz.github.io/kafka/kafka-disk-write-performance/#)
