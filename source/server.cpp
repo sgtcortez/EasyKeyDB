@@ -4,9 +4,13 @@
 #include <arpa/inet.h>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <iterator>
 #include <memory>
+#include <asm-generic/socket.h>
+#include <bits/stdint-intn.h>
+#include <bits/stdint-uintn.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -17,6 +21,24 @@
 
 using namespace std;
 using namespace easykey;
+
+namespace easykey
+{
+template <>
+Socket::Option<int32_t> const Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE(
+    SOL_SOCKET,
+    SO_RCVBUF);
+
+template <>
+Socket::Option<struct timeval> const Socket::Option<
+    struct timeval>::READ_TIMEOUT(SOL_SOCKET, SO_RCVTIMEO);
+
+template <>
+Socket::Option<int32_t> const Socket::Option<
+    int32_t>::MINIMUM_BYTES_TO_CONSIDER_BUFFER_AS_READABLE(SOL_SOCKET,
+                                                           SO_RCVLOWAT);
+
+};  // namespace easykey
 
 /**
  * Builds a server socket.
@@ -36,6 +58,54 @@ Socket::~Socket()
 {
     epoll.del(file_descriptor);
     close(file_descriptor);
+}
+
+template <typename TYPE>
+void Socket::set_option(const OptionValue<TYPE> option) const
+{
+    int32_t level = option.type.level;
+    int32_t opt_name = option.type.value;
+    TYPE t = option.value_type;
+    void *opt_value = &(t);
+    socklen_t opt_len = option.type.size;
+    if (::setsockopt(file_descriptor, level, opt_name, opt_value, opt_len) == -1)
+    {
+        perror("setsockopt");
+    }
+}
+
+template <typename TYPE>
+const Socket::OptionValue<TYPE> Socket::get_option(
+    const Option<TYPE> &type) const
+{
+    int32_t socketfd = file_descriptor;
+    int32_t level = type.level;
+    int32_t opt_name = type.value;
+    uint8_t *buffer = new uint8_t[type.size];
+    socklen_t opt_len;
+    if (::getsockopt(socketfd, level, opt_name, buffer, &opt_len) == -1)
+    {
+        perror("getsockopt");
+    }
+    void *temp = (void *)buffer;
+    TYPE *t = reinterpret_cast<TYPE *>(temp);
+
+    const OptionValue<TYPE> result(*t, type);
+    delete[] buffer;
+    return result;
+}
+
+template <typename OPTION_TYPE>
+Socket::Option<OPTION_TYPE>::Option(const int32_t level, const int32_t value)
+    : level(level), value(value), size(sizeof(OPTION_TYPE))
+{
+}
+
+template <typename VALUE_TYPE>
+Socket::OptionValue<VALUE_TYPE>::OptionValue(const VALUE_TYPE value_type,
+                                             const Option<VALUE_TYPE> &type)
+    : type(type), value_type(value_type)
+{
 }
 
 ServerSocket::ServerSocket(const int32_t file_descriptor,
@@ -73,7 +143,6 @@ const ClientSocket *ServerSocket::accept_connection() const
         throw "Could not accept a connection!";
     }
     return new ClientSocket(client_file_descriptor, client_address);
-    ;
 }
 
 ClientSocket::ClientSocket(const int32_t file_descriptor,
