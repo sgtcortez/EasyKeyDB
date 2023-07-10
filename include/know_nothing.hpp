@@ -5,8 +5,8 @@
 #include <cstdint>
 #include <vector>
 
-namespace knownothing {
-
+namespace knownothing
+{
 /**
  * For now, we will deserialize only the 4 byte number
  */
@@ -20,10 +20,11 @@ std::array<std::uint8_t, 4> serialize(std::uint32_t number);
 /**
  * The availables Know Nothing Protocol Versions
  */
-enum Protocol : std::uint8_t {
-  V1 = 0x01,
+enum Protocol : std::uint8_t
+{
+    V1 = 0x01,
 };
 
 bool check_integrity(std::vector<uint8_t> input);
 
-}; // namespace knownothing
+};  // namespace knownothing
