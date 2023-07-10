@@ -41,6 +41,64 @@ class Socket
     // TOOD: THis must not be public!
     const std::int32_t file_descriptor;
 
+    /**
+     * The socket options.
+     * This class is used to retrieve information from the user, without the
+     * need of him to specify it
+     */
+    template <typename OPTION_TYPE>
+    struct Option
+    {
+      private:
+        Option(const std::int32_t value);
+
+      public:
+        /**
+        * The optname argument
+        )*/
+        const std::int32_t value;
+
+        /**
+         * The optlen argument
+         */
+        const std::int32_t size;
+
+        /**
+         * read from socket buffer size
+         */
+        static const Option<std::int32_t> READ_BUFFER_SIZE_TYPE;
+
+        /**
+         * When reading from socket, we define the timeout
+         */
+        static const Option<struct timeval> READ_TIMEOUT;
+
+        /**
+         * Minimum number of bytes to consider the buffer as readable
+         * Can be useful if want to use batch messages
+         */
+        static const Option<std::int32_t>
+            MINIMUM_BYTES_TO_CONSIDER_BUFFER_AS_READABLE;
+    };
+
+    template <typename VALUE_TYPE>
+    struct OptionValue
+    {
+      public:
+        OptionValue(const VALUE_TYPE value_type,
+                    const Option<VALUE_TYPE>& type);
+
+        /**
+         * Since the options are static instances, we can use lvalue here
+         */
+        const Option<VALUE_TYPE>& type;
+
+        const VALUE_TYPE value_type;
+    };
+
+    template <typename TYPE>
+    void option(const OptionValue<TYPE> option) const;
+
   protected:
     const struct sockaddr_in address;
 };
