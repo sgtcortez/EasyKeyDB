@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <memory>
 #include <vector>
+#include <chrono>
 
 namespace easykey
 {
@@ -16,6 +17,12 @@ namespace easykey
  */
 class ServerSocket;
 class ClientSocket;
+
+// https://en.cppreference.com/w/cpp/chrono
+// Is there a better way?
+using timestamp = std::chrono::time_point<
+    std::chrono::steady_clock,
+    std::chrono::duration<std::uint64_t, std::ratio<1, 1000000000>>>;
 
 class EpollHandler
 {
@@ -118,7 +125,7 @@ class ServerSocket : public Socket
                  const struct sockaddr_in address);
     void assign_address() const;
     void set_available(std::uint16_t backlog_queue) const;
-    const ClientSocket* accept_connection() const;
+    ClientSocket* accept_connection() const;
 };
 
 class ClientSocket : public Socket
@@ -128,6 +135,8 @@ class ClientSocket : public Socket
                  const struct sockaddr_in address);
     void send(std::vector<uint8_t> message) const;
     std::vector<uint8_t> get() const;
+    const easykey::timestamp start;
+    easykey::timestamp last_seen;
 };
 
 /**
@@ -168,7 +177,10 @@ class Server
 
     /**
      * Check for idle connections and then remove them for current_connectins
-     * map
+     * map.
+     * This method must run every time that epoll returns timeout(exit = 0) and,
+     * must run periodically otherwise, we can have a false positively(if some
+     * connections are always sending data)
      */
     void check_idle_connections();
 
@@ -180,12 +192,12 @@ class Server
     /**
      * Handle the read request
      */
-    void handle_request(const ClientSocket* client) const;
+    void handle_request(ClientSocket* client);
 
     /**
      Keep track of the current client connections
     */
-    std::unordered_map<std::int32_t, std::unique_ptr<const ClientSocket>>
+    std::unordered_map<std::int32_t, std::unique_ptr<ClientSocket>>
         current_connections;
 };
 
