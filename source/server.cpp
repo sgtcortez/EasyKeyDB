@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <arpa/inet.h>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -17,6 +18,7 @@
 #include <unistd.h>
 
 #include <iostream>
+#include <string>
 #include <vector>
 
 using namespace std;
@@ -47,7 +49,10 @@ Socket::Option<int32_t> const Socket::Option<
  */
 ServerSocket build_server_socket(uint16_t port);
 
-static EpollHandler epoll(500);
+/**
+ * TODO: This should be defined by our user. And MUST not be hardcoded
+ */
+static EpollHandler epoll(5000);
 
 Socket::Socket(const int32_t file_descriptor, const struct sockaddr_in address)
     : file_descriptor(file_descriptor), address(address)
@@ -68,7 +73,8 @@ void Socket::set_option(const OptionValue<TYPE> option) const
     TYPE t = option.value_type;
     void *opt_value = &(t);
     socklen_t opt_len = option.type.size;
-    if (::setsockopt(file_descriptor, level, opt_name, opt_value, opt_len) == -1)
+    if (::setsockopt(file_descriptor, level, opt_name, opt_value, opt_len) ==
+        -1)
     {
         perror("setsockopt");
     }
@@ -131,7 +137,7 @@ void ServerSocket::set_available(uint16_t backlog_queue) const
     }
 }
 
-const ClientSocket *ServerSocket::accept_connection() const
+ClientSocket *ServerSocket::accept_connection() const
 {
     struct sockaddr_in client_address;
     socklen_t size = sizeof(struct sockaddr_in);
@@ -147,11 +153,14 @@ const ClientSocket *ServerSocket::accept_connection() const
 
 ClientSocket::ClientSocket(const int32_t file_descriptor,
                            const struct sockaddr_in address)
-    : Socket(file_descriptor, address)
+    : Socket(file_descriptor, address), start(chrono::steady_clock::now())
 {
     // available to READ | Requests edge-triggered notification | available
     // WRITE | peer shutdow edge-triggered notification |
     epoll.add(file_descriptor, EPOLLIN | EPOLLET | EPOLLOUT | EPOLLRDHUP);
+
+    // The last seen variable to check for idle connections once in a while
+    last_seen = chrono::steady_clock::now();
 }
 void ClientSocket::send(const vector<uint8_t> message) const
 {
@@ -225,9 +234,15 @@ void Server::start()
          << "\" to dispatch client requests!" << endl;
 
     running = true;
+    uint16_t iterations = 0;
     do
     {
-        for (const auto &event : epoll.wait_for_events())
+        const auto events = epoll.wait_for_events();
+        if (events.empty())
+        {
+            check_idle_connections();
+        }
+        for (const auto &event : events)
         {
             if (!running)
             {
@@ -252,6 +267,17 @@ void Server::start()
                 handle_request(current_connections.at(event.data.fd).get());
             }
         }
+        iterations++;
+
+        /**
+         * Every 1000 iterations, we check for idle connections
+         */
+        if (iterations == 1000)
+        {
+            check_idle_connections();
+            iterations = 0;
+        }
+
     } while (running);
 
     cout << "The server has stopped!" << endl;
@@ -267,12 +293,12 @@ void Server::stop()
 
 void Server::handle_new_connection()
 {
-    unique_ptr<const ClientSocket> client(socket.accept_connection());
+    unique_ptr<ClientSocket> client(socket.accept_connection());
     current_connections.insert(
         make_pair(client->file_descriptor, move(client)));
 }
 
-void Server::handle_request(const ClientSocket *client) const
+void Server::handle_request(ClientSocket *client)
 {
     /**
      TODO: This will not work in the real world ...
@@ -283,6 +309,11 @@ void Server::handle_request(const ClientSocket *client) const
      ... So, there is a need to share a buffer. For example, we could have the
      same abstraction of InputStream and OutputStream from Java
     */
+
+    /**
+     * Updates the last seen time
+     */
+    client->last_seen = chrono::steady_clock::now();
     const auto reply = dispatcher.exchange(client->get());
     client->send(reply);
 }
@@ -290,6 +321,31 @@ void Server::handle_request(const ClientSocket *client) const
 void Server::handle_client_disconnected(const std::int32_t file_descriptor)
 {
     current_connections.erase(file_descriptor);
+}
+
+void Server::check_idle_connections()
+{
+    cout << "Checking for idle connections ..." << endl;
+    const auto now = chrono::steady_clock::now();
+    vector<int32_t> to_remove;
+    for (const auto &connection : current_connections)
+    {
+        const auto difference = chrono::duration_cast<chrono::seconds>(
+                                    now - connection.second->last_seen)
+                                    .count();
+        // 30 Seconds of idle is allowed
+        if (difference >= 30)
+        {
+            // Can remove this connection
+            to_remove.push_back(connection.first);
+        }
+    }
+    for (const auto &fd : to_remove)
+    {
+        cout << "Removing connection: " << to_string(fd)
+             << " due to inactively!" << endl;
+        current_connections.erase(fd);
+    }
 }
 
 EpollHandler::EpollHandler(const uint16_t timeout) : timeout(timeout)
@@ -336,6 +392,11 @@ const vector<struct epoll_event> EpollHandler::wait_for_events() const
     if (total < 0)
     {
         cerr << "Epoll wait error!" << endl;
+        return {};
+    }
+    else if (total == 0)
+    {
+        cout << "Epoll Timeout!" << endl;
         return {};
     }
 
