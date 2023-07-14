@@ -51,12 +51,11 @@ class EpollHandler
 
 class Socket
 {
+    friend Server;
+
   public:
     Socket(const std::int32_t file_descriptor);
     ~Socket();
-
-    // TOOD: THis must not be public!
-    const std::int32_t file_descriptor;
 
     /**
      * The socket options.
@@ -123,6 +122,9 @@ class Socket
 
     template <typename TYPE>
     const OptionValue<TYPE> get_option(const Option<TYPE>& type) const;
+
+  protected:
+    const std::int32_t file_descriptor;
 };
 
 class ServerSocket : public Socket
