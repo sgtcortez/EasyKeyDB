@@ -52,8 +52,7 @@ class EpollHandler
 class Socket
 {
   public:
-    Socket(const std::int32_t file_descriptor,
-           const struct sockaddr_in address);
+    Socket(const std::int32_t file_descriptor);
     ~Socket();
 
     // TOOD: THis must not be public!
@@ -124,19 +123,18 @@ class Socket
 
     template <typename TYPE>
     const OptionValue<TYPE> get_option(const Option<TYPE>& type) const;
-
-  protected:
-    const struct sockaddr_in address;
 };
 
 class ServerSocket : public Socket
 {
   public:
-    ServerSocket(const std::int32_t file_descriptor,
-                 const struct sockaddr_in address);
+    ServerSocket(const std::int32_t file_descriptor, const sockaddr_in address);
     void assign_address() const;
     void set_available(std::uint16_t backlog_queue) const;
     ClientSocket* accept_connection() const;
+
+  private:
+    struct sockaddr_in address;
 };
 
 class ClientSocket : public Socket
@@ -146,7 +144,6 @@ class ClientSocket : public Socket
 
   public:
     ClientSocket(const std::int32_t file_descriptor,
-                 const struct sockaddr_in address,
                  const std::string host_ip,
                  const std::uint16_t port);
     const easykey::timestamp start;
