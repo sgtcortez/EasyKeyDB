@@ -54,8 +54,7 @@ ServerSocket build_server_socket(uint16_t port);
  */
 static EpollHandler epoll(5000);
 
-Socket::Socket(const int32_t file_descriptor, const struct sockaddr_in address)
-    : file_descriptor(file_descriptor), address(address)
+Socket::Socket(const int32_t file_descriptor) : file_descriptor(file_descriptor)
 {
 }
 
@@ -116,7 +115,7 @@ Socket::OptionValue<VALUE_TYPE>::OptionValue(const VALUE_TYPE value_type,
 
 ServerSocket::ServerSocket(const int32_t file_descriptor,
                            const struct sockaddr_in address)
-    : Socket(file_descriptor, address)
+    : Socket(file_descriptor), address(address)
 {
     epoll.add(file_descriptor, EPOLLIN);
 }
@@ -151,17 +150,13 @@ ClientSocket *ServerSocket::accept_connection() const
 
     string host_ip = inet_ntoa(client_address.sin_addr);
     uint16_t port = ntohs(client_address.sin_port);
-    return new ClientSocket(client_file_descriptor,
-                            client_address,
-                            host_ip,
-                            port);
+    return new ClientSocket(client_file_descriptor, host_ip, port);
 }
 
 ClientSocket::ClientSocket(const int32_t file_descriptor,
-                           const struct sockaddr_in address,
                            const string host_ip,
                            const uint16_t port)
-    : Socket(file_descriptor, address),
+    : Socket(file_descriptor),
       start(chrono::steady_clock::now()),
       host_ip(host_ip),
       port(port)
