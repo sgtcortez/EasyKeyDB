@@ -9,6 +9,7 @@
 #include <memory>
 #include <vector>
 #include <chrono>
+#include <functional>
 
 namespace easykey
 {
@@ -17,12 +18,21 @@ namespace easykey
  */
 class ServerSocket;
 class ClientSocket;
+class Server;
 
 // https://en.cppreference.com/w/cpp/chrono
 // Is there a better way?
 using timestamp = std::chrono::time_point<
     std::chrono::steady_clock,
     std::chrono::duration<std::uint64_t, std::ratio<1, 1000000000>>>;
+
+/**
+ * This was inspired from:
+ * https://github.com/an-tao/trantor/blob/35592d542f8eeb1345844cfa8a202ed96707d379/trantor/net/callbacks.h#L34
+ */
+using ReceiveMessageCallback =
+    std::function<std::vector<uint8_t>(const ClientSocket&,
+                                       std::vector<std::uint8_t>)>;
 
 class EpollHandler
 {
@@ -130,26 +140,25 @@ class ServerSocket : public Socket
 
 class ClientSocket : public Socket
 {
+    // Server class can access private data
+    friend Server;
+
   public:
     ClientSocket(const std::int32_t file_descriptor,
                  const struct sockaddr_in address);
-    void write(std::vector<uint8_t> message) const;
-    std::vector<uint8_t> read() const;
     const easykey::timestamp start;
     easykey::timestamp last_seen;
-};
 
-/**
- * This class is used to exchange data between client & server
- * The client connects, sends a message, than the server replies.
- * The main basic of client-server architeture.
- */
-struct Dispatcher
-{
-  public:
-    virtual std::string name() const = 0;
-    virtual std::vector<std::uint8_t> exchange(
-        std::vector<std::uint8_t> client_request) = 0;
+  private:
+    /**
+     * Reads the content of the socket buffer.
+     */
+    const std::vector<std::uint8_t> read() const;
+
+    /**
+     * Writes the content to the socket buffer
+     */
+    void write(const std::vector<std::uint8_t> content) const;
 };
 
 class Server
@@ -157,7 +166,7 @@ class Server
   public:
     Server(const std::uint16_t port,
            const std::uint16_t pending_connections,
-           Dispatcher& dispatcher);
+           const ReceiveMessageCallback receive_message_callback);
     void start();
     void stop();
 
@@ -165,7 +174,7 @@ class Server
     const std::uint16_t port;
     const std::uint16_t pending_connections;
     const ServerSocket socket;
-    Dispatcher& dispatcher;
+    const ReceiveMessageCallback receive_message_callback;
 
     // A SIGTERM/SIGINT signal set this to false
     bool running;

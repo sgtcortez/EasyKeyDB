@@ -164,7 +164,7 @@ ClientSocket::ClientSocket(const int32_t file_descriptor,
 }
 void ClientSocket::write(const vector<uint8_t> message) const
 {
-    /**
+    /*
      * Use the write systemcall to write to the client socket
      * man 2 write
      */
@@ -174,7 +174,7 @@ void ClientSocket::write(const vector<uint8_t> message) const
     }
 }
 
-vector<uint8_t> ClientSocket::read() const
+const vector<uint8_t> ClientSocket::read() const
 {
     // 16 KiB buffer
     uint8_t buffer[1024 * 16];
@@ -214,11 +214,11 @@ vector<uint8_t> ClientSocket::read() const
 
 Server::Server(const uint16_t port,
                const uint16_t pending_connections,
-               Dispatcher &dispatcher)
+               const ReceiveMessageCallback receive_message_callback)
     : port(port),
       pending_connections(pending_connections),
       socket(build_server_socket(port)),
-      dispatcher(dispatcher)
+      receive_message_callback(receive_message_callback)
 {
 }
 
@@ -230,8 +230,6 @@ void Server::start()
     cout << "Server in mode to accept connections ..." << endl;
     cout << "Server running in port: " << to_string(port) << " and can queue "
          << to_string(pending_connections) << " connections" << endl;
-    cout << "Using dispatcher: \"" << dispatcher.name()
-         << "\" to dispatch client requests!" << endl;
 
     running = true;
     uint16_t iterations = 0;
@@ -314,8 +312,12 @@ void Server::handle_request(ClientSocket *client)
      * Updates the last seen time
      */
     client->last_seen = chrono::steady_clock::now();
-    const auto reply = dispatcher.exchange(client->read());
-    client->write(reply);
+    const auto content = client->read();
+    const auto client_response = receive_message_callback(*client, content);
+    if (!client_response.empty())
+    {
+        client->write(client_response);
+    }
 }
 
 void Server::handle_client_disconnected(const std::int32_t file_descriptor)
