@@ -133,8 +133,8 @@ class ClientSocket : public Socket
   public:
     ClientSocket(const std::int32_t file_descriptor,
                  const struct sockaddr_in address);
-    void send(std::vector<uint8_t> message) const;
-    std::vector<uint8_t> get() const;
+    void write(std::vector<uint8_t> message) const;
+    std::vector<uint8_t> read() const;
     const easykey::timestamp start;
     easykey::timestamp last_seen;
 };

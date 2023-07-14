@@ -162,19 +162,19 @@ ClientSocket::ClientSocket(const int32_t file_descriptor,
     // The last seen variable to check for idle connections once in a while
     last_seen = chrono::steady_clock::now();
 }
-void ClientSocket::send(const vector<uint8_t> message) const
+void ClientSocket::write(const vector<uint8_t> message) const
 {
     /**
      * Use the write systemcall to write to the client socket
      * man 2 write
      */
-    if (write(file_descriptor, message.data(), message.size()) < 0)
+    if (::write(file_descriptor, message.data(), message.size()) < 0)
     {
         throw "Could not write data!";
     }
 }
 
-vector<uint8_t> ClientSocket::get() const
+vector<uint8_t> ClientSocket::read() const
 {
     // 16 KiB buffer
     uint8_t buffer[1024 * 16];
@@ -186,7 +186,7 @@ vector<uint8_t> ClientSocket::get() const
     {
         // Uses the read system call to read from kernel buffer to our buffer
         // man 2 read
-        const auto bytes_read = read(file_descriptor, buffer, buffer_size);
+        const auto bytes_read = ::read(file_descriptor, buffer, buffer_size);
         if (bytes_read < 0)
         {
             cerr << "Could not execute read systemcall in fd: "
@@ -314,8 +314,8 @@ void Server::handle_request(ClientSocket *client)
      * Updates the last seen time
      */
     client->last_seen = chrono::steady_clock::now();
-    const auto reply = dispatcher.exchange(client->get());
-    client->send(reply);
+    const auto reply = dispatcher.exchange(client->read());
+    client->write(reply);
 }
 
 void Server::handle_client_disconnected(const std::int32_t file_descriptor)
