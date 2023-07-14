@@ -10,6 +10,7 @@
 #include <vector>
 #include <chrono>
 #include <functional>
+#include <string>
 
 namespace easykey
 {
@@ -145,9 +146,15 @@ class ClientSocket : public Socket
 
   public:
     ClientSocket(const std::int32_t file_descriptor,
-                 const struct sockaddr_in address);
+                 const struct sockaddr_in address,
+                 const std::string host_ip,
+                 const std::uint16_t port);
     const easykey::timestamp start;
+    const std::string host_ip;
+    const std::uint16_t port;
+
     easykey::timestamp last_seen;
+    std::uint32_t iterations;
 
   private:
     /**

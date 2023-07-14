@@ -148,12 +148,23 @@ ClientSocket *ServerSocket::accept_connection() const
     {
         throw "Could not accept a connection!";
     }
-    return new ClientSocket(client_file_descriptor, client_address);
+
+    string host_ip = inet_ntoa(client_address.sin_addr);
+    uint16_t port = ntohs(client_address.sin_port);
+    return new ClientSocket(client_file_descriptor,
+                            client_address,
+                            host_ip,
+                            port);
 }
 
 ClientSocket::ClientSocket(const int32_t file_descriptor,
-                           const struct sockaddr_in address)
-    : Socket(file_descriptor, address), start(chrono::steady_clock::now())
+                           const struct sockaddr_in address,
+                           const string host_ip,
+                           const uint16_t port)
+    : Socket(file_descriptor, address),
+      start(chrono::steady_clock::now()),
+      host_ip(host_ip),
+      port(port)
 {
     // available to READ | Requests edge-triggered notification | available
     // WRITE | peer shutdow edge-triggered notification |
@@ -161,6 +172,9 @@ ClientSocket::ClientSocket(const int32_t file_descriptor,
 
     // The last seen variable to check for idle connections once in a while
     last_seen = chrono::steady_clock::now();
+
+    // Starts the iterations with zero
+    iterations = 0;
 }
 void ClientSocket::write(const vector<uint8_t> message) const
 {
@@ -312,6 +326,11 @@ void Server::handle_request(ClientSocket *client)
      * Updates the last seen time
      */
     client->last_seen = chrono::steady_clock::now();
+
+    /**
+     * Increment the number of iterations of the client with the server
+     */
+    client->iterations++;
     const auto content = client->read();
     const auto client_response = receive_message_callback(*client, content);
     if (!client_response.empty())

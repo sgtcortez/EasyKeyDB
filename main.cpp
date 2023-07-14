@@ -28,8 +28,8 @@ Database database;
 
 vector<uint8_t> callback(const ClientSocket& client, vector<uint8_t> data)
 {
-    cout << "Received data from client: " << to_string(client.file_descriptor)
-         << endl;
+    cout << "Received data from client: " << client.host_ip << ":"
+         << to_string(client.port) << endl;
 
     auto request = RequestMessage::read(data);
     if (request == nullptr)
