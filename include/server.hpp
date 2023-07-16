@@ -100,6 +100,13 @@ class Socket
          */
         static const Option<std::int32_t>
             MINIMUM_BYTES_TO_CONSIDER_BUFFER_AS_READABLE;
+
+        /**
+         * This option is used to enable the TCP Corking mechanism,
+         * which delays sending small packets in order to optimize network
+         * throughput.
+         */
+        static const Option<std::int32_t> TCP_CORKING;
     };
 
     template <typename VALUE_TYPE>

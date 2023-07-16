@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -39,6 +40,10 @@ template <>
 Socket::Option<int32_t> const Socket::Option<
     int32_t>::MINIMUM_BYTES_TO_CONSIDER_BUFFER_AS_READABLE(SOL_SOCKET,
                                                            SO_RCVLOWAT);
+
+template <>
+Socket::Option<int32_t> const Socket::Option<int32_t>::TCP_CORKING(IPPROTO_TCP,
+                                                                   TCP_CORK);
 
 };  // namespace easykey
 
@@ -161,6 +166,10 @@ ClientSocket::ClientSocket(const int32_t file_descriptor,
       host_ip(host_ip),
       port(port)
 {
+    const Socket::OptionValue<std::int32_t> option(
+        1, Socket::Option<int32_t>::TCP_CORKING);
+    set_option(option);
+
     // available to READ | Requests edge-triggered notification | available
     // WRITE | peer shutdow edge-triggered notification |
     epoll.add(file_descriptor, EPOLLIN | EPOLLET | EPOLLOUT | EPOLLRDHUP);
