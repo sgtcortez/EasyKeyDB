@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -39,6 +40,10 @@ template <>
 Socket::Option<int32_t> const Socket::Option<
     int32_t>::MINIMUM_BYTES_TO_CONSIDER_BUFFER_AS_READABLE(SOL_SOCKET,
                                                            SO_RCVLOWAT);
+
+template <>
+Socket::Option<int32_t> const Socket::Option<int32_t>::TCP_CORKING(IPPROTO_TCP,
+                                                                   TCP_CORK);
 
 };  // namespace easykey
 
