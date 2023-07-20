@@ -108,6 +108,30 @@ class Socket
         * throughput.
         */
       static const Option<std::int32_t> TCP_CORKING;
+
+
+      /**
+      * Indicates that the rules used in validating addresses
+      * supplied in a bind(2) call should allow reuse of local
+      * addresses. For AF_INET sockets this means that a socket
+      * may bind, except when there is an active listening socket
+      * bound to the address. When the listening socket is bound
+      * to INADDR_ANY with a specific port then it is not possible
+      * to bind to this port for any local address.
+      */
+      static const Option<std::int32_t> REUSE_ADDRESS;
+
+      /**
+       * Permits multiple AF_INET or AF_INET6 sockets to be bound
+       * to an identical socket address. This option must be set
+       * on each socket (including the first socket) prior to
+       * calling bind(2) on the socket. To prevent port hijacking,
+       * all of the processes binding to the same address must have
+       * the same effective UID. This option can be employed with
+       * both TCP and UDP sockets.
+      */
+      static const Option<std::int32_t> REUSE_PORT;
+
     };
 
     template <typename VALUE_TYPE>
@@ -273,5 +297,12 @@ Socket::Option<int32_t> const Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE;
 
 template <>
 Socket::Option<struct timeval> const Socket::Option<struct timeval>::READ_TIMEOUT;
+
+template<>
+Socket::Option<std::int32_t> const Socket::Option<std::int32_t>::REUSE_ADDRESS;
+
+template<>
+Socket::Option<std::int32_t> const Socket::Option<std::int32_t>::REUSE_PORT;
+
 
 };  // namespace easykey

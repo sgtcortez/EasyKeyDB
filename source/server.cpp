@@ -45,6 +45,15 @@ template <>
 Socket::Option<int32_t> const Socket::Option<int32_t>::TCP_CORKING(IPPROTO_TCP,
                                                                    TCP_CORK);
 
+template <>
+Socket::Option<int32_t> const Socket::Option<int32_t>::REUSE_ADDRESS(
+    SOL_SOCKET,
+    SO_REUSEADDR);
+
+template <>
+Socket::Option<int32_t> const Socket::Option<int32_t>::REUSE_PORT(SOL_SOCKET,
+                                                                  SO_REUSEPORT);
+
 };  // namespace easykey
 
 /**
@@ -205,6 +214,12 @@ Server::Server(const uint16_t port,
 
 void Server::start()
 {
+    socket.set_option(Socket::OptionValue<std::int32_t>{
+        1, Socket::Option<int32_t>::REUSE_ADDRESS});
+    socket.set_option(
+        Socket::OptionValue<std::int32_t>{1,
+                                          Socket::Option<int32_t>::REUSE_PORT});
+
     socket.assign_address();
     socket.set_available(pending_connections);
 
