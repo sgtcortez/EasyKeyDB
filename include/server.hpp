@@ -65,70 +65,95 @@ class Socket
     template <typename OPTION_TYPE>
     struct Option
     {
-      private:
-        Option(const std::int32_t level, const std::int32_t value);
+      Option(const std::int32_t level, const std::int32_t value) : level(level), value(value), size(sizeof(OPTION_TYPE)) {}
 
-      public:
-        /**
-         * The level argument
-         */
-        const std::int32_t level;
+      /**
+        * The level argument
+        */
+      const std::int32_t level;
 
-        /**
-        * The optname argument
-        )*/
-        const std::int32_t value;
+      /**
+      * The optname argument
+      )*/
+      const std::int32_t value;
 
-        /**
-         * The optlen argument
-         */
-        const std::int32_t size;
+      /**
+        * The optlen argument
+        */
+      const std::int32_t size;
 
-        /**
-         * read from socket buffer size
-         */
-        static const Option<std::int32_t> READ_BUFFER_SIZE_TYPE;
+      /**
+        * read from socket buffer size
+        */
+      static const Option<std::int32_t> READ_BUFFER_SIZE_TYPE;
 
-        /**
-         * When reading from socket, we define the timeout
-         */
-        static const Option<struct timeval> READ_TIMEOUT;
+      /**
+        * When reading from socket, we define the timeout
+        */
+      static const Option<struct timeval> READ_TIMEOUT;
 
-        /**
-         * Minimum number of bytes to consider the buffer as readable
-         * Can be useful if want to use batch messages
-         */
-        static const Option<std::int32_t>
-            MINIMUM_BYTES_TO_CONSIDER_BUFFER_AS_READABLE;
+      /**
+        * Minimum number of bytes to consider the buffer as readable
+        * Can be useful if want to use batch messages
+        */
+      static const Option<std::int32_t>
+          MINIMUM_BYTES_TO_CONSIDER_BUFFER_AS_READABLE;
 
-        /**
-         * This option is used to enable the TCP Corking mechanism,
-         * which delays sending small packets in order to optimize network
-         * throughput.
-         */
-        static const Option<std::int32_t> TCP_CORKING;
+      /**
+        * This option is used to enable the TCP Corking mechanism,
+        * which delays sending small packets in order to optimize network
+        * throughput.
+        */
+      static const Option<std::int32_t> TCP_CORKING;
     };
 
     template <typename VALUE_TYPE>
     struct OptionValue
     {
-      public:
-        OptionValue(const VALUE_TYPE value_type,
-                    const Option<VALUE_TYPE>& type);
 
-        /**
-         * Since the options are static instances, we can use lvalue here
-         */
-        const Option<VALUE_TYPE>& type;
+      OptionValue(const VALUE_TYPE value_type, const Option<VALUE_TYPE>& type):value_type(value_type), type(type){}
 
-        const VALUE_TYPE value_type;
+      /**
+        * Since the options are static instances, we can use lvalue here
+        */
+      const Option<VALUE_TYPE>& type;
+
+      const VALUE_TYPE value_type;
     };
 
     template <typename TYPE>
-    void set_option(const OptionValue<TYPE> option) const;
+    void set_option(const OptionValue<TYPE> option) const
+    {
+      int32_t level = option.type.level;
+      int32_t opt_name = option.type.value;
+      TYPE t = option.value_type;
+      void *opt_value = &(t);
+      socklen_t opt_len = option.type.size;
+      if (::setsockopt(file_descriptor, level, opt_name, opt_value, opt_len) == -1)
+      {
+          perror("setsockopt");
+      }
+    };
 
     template <typename TYPE>
-    const OptionValue<TYPE> get_option(const Option<TYPE>& type) const;
+    const OptionValue<TYPE> get_option(const Option<TYPE>& type) const
+    {
+      int32_t socketfd = file_descriptor;
+      int32_t level = type.level;
+      int32_t opt_name = type.value;
+      uint8_t *buffer = new uint8_t[type.size];
+      socklen_t opt_len;
+      if (::getsockopt(socketfd, level, opt_name, buffer, &opt_len) == -1)
+      {
+          perror("getsockopt");
+      }
+      void *temp = (void *)buffer;
+      TYPE *t = reinterpret_cast<TYPE *>(temp);
+
+      const OptionValue<TYPE> result(*t, type);
+      delete[] buffer;
+      return result;      
+    }
 
   protected:
     const std::int32_t file_descriptor;
@@ -222,5 +247,17 @@ class Server
     std::unordered_map<std::int32_t, std::unique_ptr<ClientSocket>>
         current_connections;
 };
+
+template <>
+Socket::Option<int32_t> const Socket::Option<int32_t>::TCP_CORKING;
+
+template <>
+Socket::Option<int32_t> const Socket::Option<int32_t>::MINIMUM_BYTES_TO_CONSIDER_BUFFER_AS_READABLE;
+
+template <>
+Socket::Option<int32_t> const Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE;
+
+template <>
+Socket::Option<struct timeval> const Socket::Option<struct timeval>::READ_TIMEOUT;
 
 };  // namespace easykey
