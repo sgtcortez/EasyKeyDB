@@ -28,18 +28,29 @@ void gracefully_termination();
 Server* server_ptr = nullptr;
 Database database;
 
+void on_connection(const ClientSocket& client)
+{
+    cout << "A new client has just joined us!" << endl;
+
+    const Socket::OptionValue<std::int32_t> option(0, Socket::Option<int32_t>::TCP_CORKING);    
+    client.set_option(option);
+
+    // The kernel doubles this size, to keep some caching & config things
+    const Socket::OptionValue<int32_t> read_size(1024 * 8, Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE);
+    client.set_option(read_size);
+
+    cout << "Is corking enabled? " << (client.get_option(Socket::Option<int32_t>::TCP_CORKING).value_type ? "true" : "false") << endl;  
+    cout << "Read buffer size: " << client.get_option(Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE).value_type << endl; 
+
+}
+
+void on_disconnected(const ClientSocket& client)
+{
+    cout << "The client: " << client.host_ip << ":" << client.port << " has just disconnected!" << endl;
+}
+
 vector<uint8_t> callback(const ClientSocket& client, vector<uint8_t> data)
 {
-
-    Socket::OptionValue<int32_t> v(1, Socket::Option<std::int32_t>::TCP_CORKING);
-    
-    struct timeval val;
-    val.tv_sec = 10;
-    val.tv_usec = 1000;
-    Socket::OptionValue<struct timeval> v1(val, Socket::Option<struct timeval>::READ_TIMEOUT);
-
-    client.set_option(v);
-    client.set_option(v1);
 
     cout << "Received data from client: " << client.host_ip << ":"
          << to_string(client.port) << endl;
@@ -87,7 +98,7 @@ vector<uint8_t> callback(const ClientSocket& client, vector<uint8_t> data)
 
 int main()
 {
-    auto server = Server(9000, 10, callback);
+    auto server = Server(9000, 10, callback, on_connection, on_disconnected);
     server.start();
 
     server_ptr = &server;

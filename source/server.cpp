@@ -179,11 +179,27 @@ const vector<uint8_t> ClientSocket::read() const
 
 Server::Server(const uint16_t port,
                const uint16_t pending_connections,
+               const ReceiveMessageCallback receive_message_callback,
+               const ClientConnectedCallback client_connected_callback,
+               const ClientDisconnectedCallback client_disconnected_callback)
+    : port(port),
+      pending_connections(pending_connections),
+      socket(build_server_socket(port)),
+      receive_message_callback(receive_message_callback),
+      client_connected_callback(client_connected_callback),
+      client_disconnected_callback(client_disconnected_callback)
+{
+}
+
+Server::Server(const uint16_t port,
+               const uint16_t pending_connections,
                const ReceiveMessageCallback receive_message_callback)
     : port(port),
       pending_connections(pending_connections),
       socket(build_server_socket(port)),
-      receive_message_callback(receive_message_callback)
+      receive_message_callback(receive_message_callback),
+      client_connected_callback(nullptr),
+      client_disconnected_callback(nullptr)
 {
 }
 
@@ -216,17 +232,14 @@ void Server::start()
 
             if (event.data.fd == socket.file_descriptor)
             {
-                cout << "A new client has arrived!" << endl;
                 handle_new_connection();
             }
             else if (event.events & EPOLLRDHUP)
             {
-                cout << "A client disconnected!" << endl;
                 handle_client_disconnected(event.data.fd);
             }
             else if (event.events & EPOLLIN)
             {
-                cout << "A client has sent some data!" << endl;
                 handle_request(current_connections.at(event.data.fd).get());
             }
         }
@@ -257,6 +270,10 @@ void Server::stop()
 void Server::handle_new_connection()
 {
     unique_ptr<ClientSocket> client(socket.accept_connection());
+    if (client_connected_callback)
+    {
+        client_connected_callback(*client);
+    }
     current_connections.insert(
         make_pair(client->file_descriptor, move(client)));
 }
@@ -292,6 +309,11 @@ void Server::handle_request(ClientSocket *client)
 
 void Server::handle_client_disconnected(const std::int32_t file_descriptor)
 {
+    if (client_disconnected_callback)
+    {
+        const auto client = current_connections[file_descriptor].get();
+        client_disconnected_callback(*client);
+    }
     current_connections.erase(file_descriptor);
 }
 
@@ -316,7 +338,7 @@ void Server::check_idle_connections()
     {
         cout << "Removing connection: " << to_string(fd)
              << " due to inactively!" << endl;
-        current_connections.erase(fd);
+        handle_client_disconnected(fd);
     }
 }
 
