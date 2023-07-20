@@ -3,7 +3,9 @@
 #include "server.hpp"
 #include "database.hpp"
 
+#include <bits/stdint-intn.h>
 #include <bits/stdint-uintn.h>
+#include <bits/types/struct_timeval.h>
 #include <cstdint>
 #include <iostream>
 #include <unordered_map>
@@ -28,6 +30,17 @@ Database database;
 
 vector<uint8_t> callback(const ClientSocket& client, vector<uint8_t> data)
 {
+
+    Socket::OptionValue<int32_t> v(1, Socket::Option<std::int32_t>::TCP_CORKING);
+    
+    struct timeval val;
+    val.tv_sec = 10;
+    val.tv_usec = 1000;
+    Socket::OptionValue<struct timeval> v1(val, Socket::Option<struct timeval>::READ_TIMEOUT);
+
+    client.set_option(v);
+    client.set_option(v1);
+
     cout << "Received data from client: " << client.host_ip << ":"
          << to_string(client.port) << endl;
 

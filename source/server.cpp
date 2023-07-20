@@ -69,55 +69,6 @@ Socket::~Socket()
     close(file_descriptor);
 }
 
-template <typename TYPE>
-void Socket::set_option(const OptionValue<TYPE> option) const
-{
-    int32_t level = option.type.level;
-    int32_t opt_name = option.type.value;
-    TYPE t = option.value_type;
-    void *opt_value = &(t);
-    socklen_t opt_len = option.type.size;
-    if (::setsockopt(file_descriptor, level, opt_name, opt_value, opt_len) ==
-        -1)
-    {
-        perror("setsockopt");
-    }
-}
-
-template <typename TYPE>
-const Socket::OptionValue<TYPE> Socket::get_option(
-    const Option<TYPE> &type) const
-{
-    int32_t socketfd = file_descriptor;
-    int32_t level = type.level;
-    int32_t opt_name = type.value;
-    uint8_t *buffer = new uint8_t[type.size];
-    socklen_t opt_len;
-    if (::getsockopt(socketfd, level, opt_name, buffer, &opt_len) == -1)
-    {
-        perror("getsockopt");
-    }
-    void *temp = (void *)buffer;
-    TYPE *t = reinterpret_cast<TYPE *>(temp);
-
-    const OptionValue<TYPE> result(*t, type);
-    delete[] buffer;
-    return result;
-}
-
-template <typename OPTION_TYPE>
-Socket::Option<OPTION_TYPE>::Option(const int32_t level, const int32_t value)
-    : level(level), value(value), size(sizeof(OPTION_TYPE))
-{
-}
-
-template <typename VALUE_TYPE>
-Socket::OptionValue<VALUE_TYPE>::OptionValue(const VALUE_TYPE value_type,
-                                             const Option<VALUE_TYPE> &type)
-    : type(type), value_type(value_type)
-{
-}
-
 ServerSocket::ServerSocket(const int32_t file_descriptor,
                            const struct sockaddr_in address)
     : Socket(file_descriptor), address(address)
