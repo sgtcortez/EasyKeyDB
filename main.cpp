@@ -6,6 +6,7 @@
 #include <bits/stdint-intn.h>
 #include <bits/stdint-uintn.h>
 #include <bits/types/struct_timeval.h>
+#include <sys/socket.h>
 #include <cstdint>
 #include <iostream>
 #include <unordered_map>
@@ -32,14 +33,25 @@ void on_connection(const ClientSocket& client)
 {
     cout << "A new client has just joined us!" << endl;
 
+    struct linger linger_option;
+    // enable
+    linger_option.l_onoff = 0;
+    // ten seconds
+    linger_option.l_linger = 10;
+
     client.set_option(Socket::OptionValue<std::int32_t>(3, Socket::Option<int32_t>::TCP_NO_DELAY));
+    client.set_option(Socket::OptionValue<struct linger>(linger_option, Socket::Option<struct linger>::LINGER));
 
     // The kernel doubles this size, to keep some caching & config things
     client.set_option(Socket::OptionValue<int32_t>(1024 * 8, Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE));
 
+    const auto linger_opt_return = client.get_option(Socket::Option<struct linger>::LINGER);
+    cout << "Is linger enabled? " << (linger_opt_return.value_type.l_onoff ? "true" : "false" ) << endl;
+    cout << "Linger timeout:" << to_string(linger_opt_return.value_type.l_linger) << endl; 
     cout << "Is no delay enabled? " << (client.get_option(Socket::Option<int32_t>::TCP_NO_DELAY).value_type ? "true" : "false") << endl;  
     cout << "Is corking enabled? " << (client.get_option(Socket::Option<int32_t>::TCP_CORKING).value_type ? "true" : "false") << endl;  
     cout << "Read buffer size: " << client.get_option(Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE).value_type << endl; 
+
 
 }
 

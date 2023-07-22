@@ -144,6 +144,13 @@ class Socket
       */
       static const Option<std::int32_t> TCP_NO_DELAY;
 
+
+      /**
+      * If defined, tries to send al enqued messages before socket.close or socket.shutdown return.
+      * So, if the send exceeds the timeout defined in the linger option
+      */
+      static const Option<struct linger> LINGER;
+
     };
 
     template <typename VALUE_TYPE>
@@ -321,5 +328,8 @@ Socket::Option<std::int32_t> const Socket::Option<std::int32_t>::REUSE_PORT;
 
 template <>
 Socket::Option<std::int32_t> const Socket::Option<std::int32_t>::TCP_NO_DELAY;
+
+template <>
+Socket::Option<struct linger> const Socket::Option<struct linger>::LINGER;
 
 };  // namespace easykey
