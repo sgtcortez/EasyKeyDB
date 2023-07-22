@@ -21,180 +21,15 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "socket.hpp"
 
 using namespace std;
 using namespace easykey;
-
-namespace easykey
-{
-template <>
-Socket::Option<int32_t> const Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE(
-    SOL_SOCKET,
-    SO_RCVBUF);
-
-template <>
-Socket::Option<struct timeval> const Socket::Option<
-    struct timeval>::READ_TIMEOUT(SOL_SOCKET, SO_RCVTIMEO);
-
-template <>
-Socket::Option<int32_t> const Socket::Option<
-    int32_t>::MINIMUM_BYTES_TO_CONSIDER_BUFFER_AS_READABLE(SOL_SOCKET,
-                                                           SO_RCVLOWAT);
-
-template <>
-Socket::Option<int32_t> const Socket::Option<int32_t>::TCP_CORKING(IPPROTO_TCP,
-                                                                   TCP_CORK);
-
-template <>
-Socket::Option<int32_t> const Socket::Option<int32_t>::REUSE_ADDRESS(
-    SOL_SOCKET,
-    SO_REUSEADDR);
-
-template <>
-Socket::Option<int32_t> const Socket::Option<int32_t>::REUSE_PORT(SOL_SOCKET,
-                                                                  SO_REUSEPORT);
-
-template <>
-Socket::Option<int32_t> const Socket::Option<int32_t>::TCP_NO_DELAY(
-    IPPROTO_TCP,
-    TCP_NODELAY);
-
-template <>
-Socket::Option<struct linger> const Socket::Option<struct linger>::LINGER(
-    SOL_SOCKET,
-    SO_LINGER);
-
-};  // namespace easykey
-
-/**
- * Builds a server socket.
- * This is necessary, because the socket variable is const,
- * so it needs to be build before object construct time
- */
-ServerSocket build_server_socket(uint16_t port);
 
 /**
  * TODO: This should be defined by our user. And MUST not be hardcoded
  */
 static EpollHandler epoll(5000);
-
-Socket::Socket(const int32_t file_descriptor) : file_descriptor(file_descriptor)
-{
-}
-
-Socket::~Socket()
-{
-    epoll.del(file_descriptor);
-    close(file_descriptor);
-}
-
-ServerSocket::ServerSocket(const int32_t file_descriptor,
-                           const struct sockaddr_in address)
-    : Socket(file_descriptor), address(address)
-{
-    epoll.add(file_descriptor, EPOLLIN);
-}
-
-void ServerSocket::assign_address() const
-{
-    if (bind(file_descriptor, (struct sockaddr *)&address, sizeof(address)) < 0)
-    {
-        throw "Could not assign address to the socket!";
-    }
-}
-
-void ServerSocket::set_available(uint16_t backlog_queue) const
-{
-    if (listen(file_descriptor, backlog_queue) < 0)
-    {
-        throw "Could not set socket to passive mode!";
-    }
-}
-
-ClientSocket *ServerSocket::accept_connection() const
-{
-    struct sockaddr_in client_address;
-    socklen_t size = sizeof(struct sockaddr_in);
-
-    int32_t client_file_descriptor =
-        accept(file_descriptor, (struct sockaddr *)&client_address, &size);
-    if (client_file_descriptor < 0)
-    {
-        throw "Could not accept a connection!";
-    }
-
-    string host_ip = inet_ntoa(client_address.sin_addr);
-    uint16_t port = ntohs(client_address.sin_port);
-    return new ClientSocket(client_file_descriptor, host_ip, port);
-}
-
-ClientSocket::ClientSocket(const int32_t file_descriptor,
-                           const string host_ip,
-                           const uint16_t port)
-    : Socket(file_descriptor),
-      start(chrono::steady_clock::now()),
-      host_ip(host_ip),
-      port(port)
-{
-    // available to READ | Requests edge-triggered notification | available
-    // WRITE | peer shutdow edge-triggered notification |
-    epoll.add(file_descriptor, EPOLLIN | EPOLLET | EPOLLOUT | EPOLLRDHUP);
-
-    // The last seen variable to check for idle connections once in a while
-    last_seen = chrono::steady_clock::now();
-
-    // Starts the iterations with zero
-    iterations = 0;
-}
-void ClientSocket::write(const vector<uint8_t> message) const
-{
-    /*
-     * Use the write systemcall to write to the client socket
-     * man 2 write
-     */
-    if (::write(file_descriptor, message.data(), message.size()) < 0)
-    {
-        throw "Could not write data!";
-    }
-}
-
-const vector<uint8_t> ClientSocket::read() const
-{
-    // 16 KiB buffer
-    uint8_t buffer[1024 * 16];
-
-    const auto buffer_size = sizeof(buffer) / sizeof(buffer[0]);
-
-    vector<uint8_t> vector;
-    do
-    {
-        // Uses the read system call to read from kernel buffer to our buffer
-        // man 2 read
-        const auto bytes_read = ::read(file_descriptor, buffer, buffer_size);
-        if (bytes_read < 0)
-        {
-            cerr << "Could not execute read systemcall in fd: "
-                 << to_string(file_descriptor) << endl;
-            return {0};
-        }
-
-        // TODO: Since vector is backed by an array, we need to improve the
-        // number of times that realloc is done under the hood to be more
-        // effective Maybe(?)
-        // https://cplusplus.com/reference/vector/vector/reserve/
-
-        copy(buffer, buffer + bytes_read, back_inserter(vector));
-
-        // We request for N bytes, returned N - 1, that means that we have
-        // nothing else to read from the file descriptor
-        if (bytes_read < buffer_size)
-        {
-            break;
-        }
-
-    } while (true);
-    return vector;
-}
 
 Server::Server(const uint16_t port,
                const uint16_t pending_connections,
@@ -203,7 +38,7 @@ Server::Server(const uint16_t port,
                const ClientDisconnectedCallback client_disconnected_callback)
     : port(port),
       pending_connections(pending_connections),
-      socket(build_server_socket(port)),
+      socket(ServerSocket::from(port)),
       receive_message_callback(receive_message_callback),
       client_connected_callback(client_connected_callback),
       client_disconnected_callback(client_disconnected_callback)
@@ -215,7 +50,7 @@ Server::Server(const uint16_t port,
                const ReceiveMessageCallback receive_message_callback)
     : port(port),
       pending_connections(pending_connections),
-      socket(build_server_socket(port)),
+      socket(ServerSocket::from(port)),
       receive_message_callback(receive_message_callback),
       client_connected_callback(nullptr),
       client_disconnected_callback(nullptr)
@@ -224,6 +59,11 @@ Server::Server(const uint16_t port,
 
 void Server::start()
 {
+    /**
+     * Register the server socket as this event in epoll
+     */
+    epoll.add(socket.file_descriptor, EPOLLIN);
+
     socket.set_option(Socket::OptionValue<std::int32_t>{
         1, Socket::Option<int32_t>::REUSE_ADDRESS});
     socket.set_option(
@@ -282,6 +122,12 @@ void Server::start()
     } while (running);
 
     cout << "The server has stopped!" << endl;
+
+    /*
+     * Removes the server socket from the epoll handler before closing epoll
+     * file descriptor
+     */
+    epoll.del(socket.file_descriptor);
 }
 
 void Server::stop()
@@ -296,11 +142,17 @@ void Server::handle_new_connection()
 {
     unique_ptr<ClientSocket> client(socket.accept_connection());
 
+    /**
+     * Register the accepted socket to those epoll events
+     * READ | Edge Triggered | WRITE | PEER SHUTDOW
+     */
+    epoll.add(client->file_descriptor,
+              EPOLLIN | EPOLLET | EPOLLOUT | EPOLLRDHUP);
+
     if (client_connected_callback)
     {
         client_connected_callback(*client);
     }
-
     current_connections.insert(
         make_pair(client->file_descriptor, move(client)));
 }
@@ -341,6 +193,10 @@ void Server::handle_client_disconnected(const std::int32_t file_descriptor)
         const auto client = current_connections[file_descriptor].get();
         client_disconnected_callback(*client);
     }
+    /**
+     * Removes the client socket from the epoll watch
+     */
+    epoll.del(file_descriptor);
     current_connections.erase(file_descriptor);
 }
 
@@ -428,23 +284,4 @@ const vector<struct epoll_event> EpollHandler::wait_for_events() const
         events.push_back(events_buffer[index]);
     }
     return events;
-}
-
-ServerSocket build_server_socket(uint16_t port)
-{
-    const auto ipv4 = AF_INET;
-
-    const auto file_descriptor = socket(ipv4, SOCK_STREAM | SOCK_NONBLOCK, 0);
-    if (file_descriptor < 0)
-    {
-        throw "Could not open socket!!!";
-    }
-    sockaddr_in address;
-    memset(&address, 0, sizeof(struct sockaddr_in));
-
-    address.sin_family = ipv4;
-    address.sin_port = htons(port);
-    address.sin_addr.s_addr = INADDR_ANY;
-
-    return {file_descriptor, address};
 }
