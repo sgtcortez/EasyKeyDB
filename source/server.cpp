@@ -59,6 +59,11 @@ Socket::Option<int32_t> const Socket::Option<int32_t>::TCP_NO_DELAY(
     IPPROTO_TCP,
     TCP_NODELAY);
 
+template <>
+Socket::Option<struct linger> const Socket::Option<struct linger>::LINGER(
+    SOL_SOCKET,
+    SO_LINGER);
+
 };  // namespace easykey
 
 /**
