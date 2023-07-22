@@ -54,6 +54,11 @@ template <>
 Socket::Option<int32_t> const Socket::Option<int32_t>::REUSE_PORT(SOL_SOCKET,
                                                                   SO_REUSEPORT);
 
+template <>
+Socket::Option<int32_t> const Socket::Option<int32_t>::TCP_NO_DELAY(
+    IPPROTO_TCP,
+    TCP_NODELAY);
+
 };  // namespace easykey
 
 /**
