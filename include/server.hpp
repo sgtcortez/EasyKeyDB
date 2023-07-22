@@ -132,6 +132,17 @@ class Socket
        * both TCP and UDP sockets.
       */
       static const Option<std::int32_t> REUSE_PORT;
+      /*
+       *  If set, disable the Nagle algorithm.  This means that
+       *  segments are always sent as soon as possible, even if
+       *  there is only a small amount of data.  When not set, data
+       *  is buffered until there is a sufficient amount to send
+       *  out, thereby avoiding the frequent sending of small
+       *  packets, which results in poor utilization of the network.
+
+       * https://en.wikipedia.org/wiki/Nagle%27s_algorithm its useful to undestand this ...
+      */
+      static const Option<std::int32_t> TCP_NO_DELAY;
 
     };
 
@@ -308,5 +319,7 @@ Socket::Option<std::int32_t> const Socket::Option<std::int32_t>::REUSE_ADDRESS;
 template<>
 Socket::Option<std::int32_t> const Socket::Option<std::int32_t>::REUSE_PORT;
 
+template <>
+Socket::Option<std::int32_t> const Socket::Option<std::int32_t>::TCP_NO_DELAY;
 
 };  // namespace easykey

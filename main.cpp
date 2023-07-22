@@ -32,13 +32,12 @@ void on_connection(const ClientSocket& client)
 {
     cout << "A new client has just joined us!" << endl;
 
-    const Socket::OptionValue<std::int32_t> option(1, Socket::Option<int32_t>::TCP_CORKING);    
-    client.set_option(option);
+    client.set_option(Socket::OptionValue<std::int32_t>(3, Socket::Option<int32_t>::TCP_NO_DELAY));
 
     // The kernel doubles this size, to keep some caching & config things
-    const Socket::OptionValue<int32_t> read_size(1024 * 8, Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE);
-    client.set_option(read_size);
+    client.set_option(Socket::OptionValue<int32_t>(1024 * 8, Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE));
 
+    cout << "Is no delay enabled? " << (client.get_option(Socket::Option<int32_t>::TCP_NO_DELAY).value_type ? "true" : "false") << endl;  
     cout << "Is corking enabled? " << (client.get_option(Socket::Option<int32_t>::TCP_CORKING).value_type ? "true" : "false") << endl;  
     cout << "Read buffer size: " << client.get_option(Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE).value_type << endl; 
 
