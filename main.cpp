@@ -32,7 +32,7 @@ void on_connection(const ClientSocket& client)
 {
     cout << "A new client has just joined us!" << endl;
 
-    const Socket::OptionValue<std::int32_t> option(0, Socket::Option<int32_t>::TCP_CORKING);    
+    const Socket::OptionValue<std::int32_t> option(1, Socket::Option<int32_t>::TCP_CORKING);    
     client.set_option(option);
 
     // The kernel doubles this size, to keep some caching & config things

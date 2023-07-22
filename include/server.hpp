@@ -5,6 +5,7 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <cstdlib>
 #include <unordered_map>
 #include <memory>
 #include <vector>
@@ -146,6 +147,7 @@ class Socket
       const Option<VALUE_TYPE>& type;
 
       const VALUE_TYPE value_type;
+
     };
 
     template <typename TYPE>
@@ -168,17 +170,19 @@ class Socket
       int32_t socketfd = file_descriptor;
       int32_t level = type.level;
       int32_t opt_name = type.value;
-      uint8_t *buffer = new uint8_t[type.size];
+      
+      /**
+       * NOTE: This is not a Variable Length Array.  
+       * We can achive this, with templates, so its know at compile time how big it is.
+      */
+      std::int8_t buffer[type.size];
       socklen_t opt_len;
       if (::getsockopt(socketfd, level, opt_name, buffer, &opt_len) == -1)
       {
           perror("getsockopt");
       }
-      void *temp = (void *)buffer;
-      TYPE *t = reinterpret_cast<TYPE *>(temp);
-
+      TYPE *t = reinterpret_cast<TYPE *>(buffer);
       const OptionValue<TYPE> result(*t, type);
-      delete[] buffer;
       return result;      
     }
 

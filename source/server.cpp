@@ -285,10 +285,12 @@ void Server::stop()
 void Server::handle_new_connection()
 {
     unique_ptr<ClientSocket> client(socket.accept_connection());
+
     if (client_connected_callback)
     {
         client_connected_callback(*client);
     }
+
     current_connections.insert(
         make_pair(client->file_descriptor, move(client)));
 }
