@@ -31,7 +31,10 @@ typedef struct
     Array value;
 } EasyKeyv1Reply;
 
-Array * read_filedescriptor(int fd);
+Array * read_buffer = NULL;
+unsigned int current_index = 0;
+
+void read_filedescriptor(int fd);
 EasyKeyv1Reply * get_reply(int fd);
 void delete_reply(EasyKeyv1Reply* reply);
 void print_server_response(EasyKeyv1Reply* reply);
@@ -44,6 +47,7 @@ int main(void)
     puts("EasyKeyV1 Demo!");
     puts("For this demo, just strings are supported!");
     menu();
+    free(read_buffer);
     return 0;
 
 }
@@ -60,6 +64,19 @@ void menu(void)
         exit(errno);
     }
     
+
+    struct timeval timeout;
+    timeout.tv_sec = 0; // 1 seconds
+    timeout.tv_usec = 1000; // 1 milliseconds
+
+    // Set socket receive timeout. 
+    // Since the server will write reply right after, we do not want to wait for a timeout 
+    if (setsockopt(socket_filedescriptor, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
+        perror("setsockopt");
+        close(socket_filedescriptor);
+        exit(EXIT_FAILURE);
+    }
+
     int option = 3;
 
     do 
@@ -92,65 +109,79 @@ void interactive_write(int fd)
 {
     puts("--------------------WRITE--------------------");
 
-    printf("\tKey: ");
-    char key_buffer[1024];
-    fgets(key_buffer, sizeof(key_buffer) / sizeof(key_buffer[0]), stdin);
+    unsigned int messsages_to_write = 0;
+    printf("\tNumber of Messages to write: ");
+    char message_buffer[4];
+    fgets(message_buffer, 4, stdin);
+    messsages_to_write = atoi(message_buffer);
 
-    printf("\tValue: ");
-    char value_buffer[1024 * 4];
-    fgets(value_buffer, sizeof(value_buffer) / sizeof(value_buffer[0]), stdin);
-
-    // remove the \n of the final index
-    int key_size = strlen(key_buffer) - 1;
-    int value_size = strlen(value_buffer) - 1;
-
-    // protocol + 1 for number of messages + 1º message size + 1º message + 2º message size + 2º message
-    const int message_size = 1 + 1 + sizeof(key_size) + key_size + sizeof(value_size) + value_size;
-
-    // allocate the desired memory
-    unsigned char* know_nothing = (unsigned char*) malloc(message_size);
-
-    int index = 0;
-
-    // protocol version
-    know_nothing[index++] = PROTOCOL_VERSION;
-
-    // There will be two messages. 
-    // So we need to append them 
-    know_nothing[index++] = 0x02; 
-
-    // Serialize the 4 byte key size message in individual bytes
-    know_nothing[index++] = key_size;
-    know_nothing[index++] = key_size >> 8;
-    know_nothing[index++] = key_size >> 16;
-    know_nothing[index++] = key_size >> 24;
-
-    // Copy the key content into the know nothing serialized data
-    memcpy(know_nothing+index, key_buffer, key_size);
-
-    // updates the index with the length of the key message size
-    index += key_size;
-
-    // Serialize the 4 byte value size message in individual bytes
-    know_nothing[index++] = value_size;
-    know_nothing[index++] = value_size >> 8;
-    know_nothing[index++] = value_size >> 16;
-    know_nothing[index++] = value_size >> 24;        
-
-    // Copy the value content into the know nothing serialized data
-    memcpy(know_nothing+index, value_buffer, value_size);
-
-    if (write(fd, know_nothing, message_size) < 0)
+    for (unsigned int message = 0; message < messsages_to_write; message++)
     {
-        perror("Write");
-        exit(errno);
+        printf("\tKey %d: ", message);
+        char key_buffer[1024];
+        fgets(key_buffer, sizeof(key_buffer) / sizeof(key_buffer[0]), stdin);
+
+        printf("\tValue %d: ", message);
+        char value_buffer[1024 * 4];
+        fgets(value_buffer, sizeof(value_buffer) / sizeof(value_buffer[0]), stdin);
+
+        // remove the \n of the final index
+        int key_size = strlen(key_buffer) - 1;
+        int value_size = strlen(value_buffer) - 1;
+
+        // protocol + 1 for number of messages + 1º message size + 1º message + 2º message size + 2º message
+        const int message_size = 1 + 1 + sizeof(key_size) + key_size + sizeof(value_size) + value_size;
+
+        // allocate the desired memory
+        unsigned char* know_nothing = (unsigned char*) malloc(message_size);
+
+        int index = 0;
+
+        // protocol version
+        know_nothing[index++] = PROTOCOL_VERSION;
+
+        // There will be two messages. 
+        // So we need to append them 
+        know_nothing[index++] = 0x02; 
+
+        // Serialize the 4 byte key size message in individual bytes
+        know_nothing[index++] = key_size;
+        know_nothing[index++] = key_size >> 8;
+        know_nothing[index++] = key_size >> 16;
+        know_nothing[index++] = key_size >> 24;
+
+        // Copy the key content into the know nothing serialized data
+        memcpy(know_nothing+index, key_buffer, key_size);
+
+        // updates the index with the length of the key message size
+        index += key_size;
+
+        // Serialize the 4 byte value size message in individual bytes
+        know_nothing[index++] = value_size;
+        know_nothing[index++] = value_size >> 8;
+        know_nothing[index++] = value_size >> 16;
+        know_nothing[index++] = value_size >> 24;        
+
+        // Copy the value content into the know nothing serialized data
+        memcpy(know_nothing+index, value_buffer, value_size);
+
+        if (write(fd, know_nothing, message_size) < 0)
+        {
+            perror("Write");
+            exit(errno);
+        }
+
+        free(know_nothing);
     }
 
-    free(know_nothing);
+    for (unsigned int message = 0; message < messsages_to_write; message++)
+    {
+        printf("Response for message number: %d\n", message);
+        EasyKeyv1Reply* server_response = get_reply(fd);
+        print_server_response(server_response);
+        delete_reply(server_response);
+    }
 
-    EasyKeyv1Reply* server_response = get_reply(fd);
-    print_server_response(server_response);
-    delete_reply(server_response);
     puts("--------------------WRITE--------------------");
 
 }
@@ -221,23 +252,26 @@ struct sockaddr_in create_socket(in_addr_t server_address, unsigned int server_p
     return server;
 }
 
-Array * read_filedescriptor(int fd)
+void read_filedescriptor(int fd)
 {
+
+    // First read
+    if (read_buffer == NULL) 
+    {
+        read_buffer = (Array *) malloc(sizeof(Array));
+        // The first iteration 0 + bytes read = bytes read
+        read_buffer->size = 0;
+
+        // its safe to be null, because realloc deals with nulls pointers
+        read_buffer->array = NULL; 
+    }
 
     // the buffer to make successive calls to read
     char buffer[1024];
 
     // the buffer size
     const int buffer_size = sizeof(buffer) / sizeof(buffer[0]);
-
-    Array* output = (Array *) malloc(sizeof(Array));
-
-    // The first iteration 0 + bytes read = bytes read
-    output->size = 0;
-
-    // its safe to be null, because realloc deals with nulls pointers
-    output->array = NULL; 
-
+ 
     do 
     {
         // read n bytes from file descriptor buffer
@@ -246,21 +280,21 @@ Array * read_filedescriptor(int fd)
         // an error occurred
         if (number_bytes_read < 0)
         {
-            perror("Could not read from file descriptor!");
-            exit(errno);
+            // If no messages are sent or timeout is thrown
+            return;
         }
 
         // the current size of the array
-        int current = output->size;
+        int current = read_buffer->size;
 
         // the new total size of the array
-        output->size = current + number_bytes_read;
+        read_buffer->size = current + number_bytes_read;
 
         // realloc the pointer with more memory(also copies the current content)
-        output->array = (unsigned char*) realloc(output->array, output->size);
+        read_buffer->array = (unsigned char*) realloc(read_buffer->array, read_buffer->size);
 
         // copies the content of the new buffer into our array 
-        memcpy(output->array + current, buffer, number_bytes_read);
+        memcpy(read_buffer->array + current, buffer, number_bytes_read);
 
         if (number_bytes_read < buffer_size)
         {
@@ -269,25 +303,26 @@ Array * read_filedescriptor(int fd)
         }
 
     } while(1);
-    return output;
 }
 
 
 EasyKeyv1Reply * get_reply(int fd)
 {
 
-    Array* array = read_filedescriptor(fd);
+    /**
+     * Read everything that is available in the socket at this time
+     and store it at some local buffer
+    */
+    read_filedescriptor(fd);
 
     EasyKeyv1Reply* reply = (EasyKeyv1Reply *) malloc(sizeof(EasyKeyv1Reply));
-
-    unsigned int current_index = 0;
     
     // get the protocol version
-    reply->know_nothing = array->array[current_index++];
+    reply->know_nothing = read_buffer->array[current_index++];
     
     // get the number of messages returned
     // must be 2
-    int number_messages = array->array[current_index++];
+    int number_messages = read_buffer->array[current_index++];
 
     if (number_messages != 2)
     {
@@ -300,24 +335,23 @@ EasyKeyv1Reply * get_reply(int fd)
     current_index+=4;
 
     // get the request status code
-    reply->status_code = array->array[current_index++];
+    reply->status_code = read_buffer->array[current_index++];
 
     // Deserializes the second message size
     reply->value.size = 0;
-    reply->value.size |= array->array[current_index++];
-    reply->value.size |= (array->array[current_index++]) << 8;
-    reply->value.size |= (array->array[current_index++]) << 16;
-    reply->value.size |= (array->array[current_index++]) << 24;
+    reply->value.size |= read_buffer->array[current_index++];
+    reply->value.size |= (read_buffer->array[current_index++]) << 8;
+    reply->value.size |= (read_buffer->array[current_index++]) << 16;
+    reply->value.size |= (read_buffer->array[current_index++]) << 24;
 
     // Create the array to copy the content
     reply->value.array = (unsigned char *) malloc(sizeof(char) * reply->value.size);
 
     // copy the content into the array
-    memcpy(reply->value.array, array->array+current_index, reply->value.size);
+    memcpy(reply->value.array, read_buffer->array+current_index, reply->value.size);
     
-    // Free the memory 
-    free(array->array);
-    free(array);
+    // updates the current index to match the message value
+    current_index+=reply->value.size;
 
     return reply;     
 
@@ -331,7 +365,7 @@ void delete_reply(EasyKeyv1Reply* reply)
 
 void print_server_response(EasyKeyv1Reply* reply)
 {
-    puts("\tServer Response");
+    puts("\t----- Server Response -----");
     printf("\tKnow Nothing: \"%d\"\n", reply->know_nothing);
     printf("\tStatus Code: \"%d\"\n", reply->status_code);
 

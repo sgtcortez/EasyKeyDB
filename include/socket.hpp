@@ -1,14 +1,17 @@
 #pragma once
 
+#include "byte_buffer.hpp"
+
 #include <cstdint>  // For fixed-width integer types like std::int32_t, std::uint16_t, etc.
 #include <cstdlib>       // For functions like perror
 #include <cstring>       // For functions like memcpy
 #include <netinet/in.h>  // For the sockaddr_in structure
 #include <sys/socket.h>  // For socket-related functions and constants
 #include <unistd.h>      // For close function
-#include <vector>        // For std::vector
-#include <string>        // For std::string
-#include <chrono>        // For std::chrnono
+#include <memory>
+#include <vector>  // For std::vector
+#include <string>  // For std::string
+#include <chrono>  // For std::chrnono
 
 namespace easykey
 {
@@ -208,6 +211,7 @@ class ClientSocket : public Socket
     ClientSocket(const std::int32_t file_descriptor,
                  const std::string host_ip,
                  const std::uint16_t port);
+
     const easykey::timestamp start;
     const std::string host_ip;
     const std::uint16_t port;
@@ -217,9 +221,15 @@ class ClientSocket : public Socket
 
   private:
     /**
-     * Reads the content of the socket buffer.
+     * Reads the content of the socket buffer. And then, stores it into the
+     * client connection buffer
      */
-    const std::vector<std::uint8_t> read() const;
+    void read();
+
+    /**
+     * This buffer is where the
+     */
+    ByteBuffer read_buffer;
 
     /**
      * Writes the content to the socket buffer

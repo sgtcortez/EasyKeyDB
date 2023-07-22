@@ -21,7 +21,6 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "socket.hpp"
 
 using namespace std;
 using namespace easykey;
@@ -178,11 +177,16 @@ void Server::handle_request(ClientSocket *client)
      * Increment the number of iterations of the client with the server
      */
     client->iterations++;
-    const auto content = client->read();
-    const auto client_response = receive_message_callback(*client, content);
+
+    // Reads the content from the buffer
+    client->read();
+
+    const auto client_response =
+        receive_message_callback(*client, client->read_buffer);
     if (!client_response.empty())
     {
         client->write(client_response);
+        cout << "Written data to client !" << endl;
     }
 }
 
@@ -193,9 +197,7 @@ void Server::handle_client_disconnected(const std::int32_t file_descriptor)
         const auto client = current_connections[file_descriptor].get();
         client_disconnected_callback(*client);
     }
-    /**
-     * Removes the client socket from the epoll watch
-     */
+
     epoll.del(file_descriptor);
     current_connections.erase(file_descriptor);
 }
@@ -211,7 +213,7 @@ void Server::check_idle_connections()
                                     now - connection.second->last_seen)
                                     .count();
         // 30 Seconds of idle is allowed
-        if (difference >= 30)
+        if (difference >= 300)
         {
             // Can remove this connection
             to_remove.push_back(connection.first);

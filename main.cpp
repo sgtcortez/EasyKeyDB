@@ -1,3 +1,4 @@
+#include "byte_buffer.hpp"
 #include "easykey.hpp"
 #include "know_nothing.hpp"
 #include "server.hpp"
@@ -7,8 +8,11 @@
 #include <bits/stdint-uintn.h>
 #include <bits/types/struct_timeval.h>
 #include <sys/socket.h>
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <iterator>
+#include <memory>
 #include <unordered_map>
 #include <string>
 #include <vector>
@@ -39,34 +43,85 @@ void on_connection(const ClientSocket& client)
     // ten seconds
     linger_option.l_linger = 10;
 
-    client.set_option(Socket::OptionValue<std::int32_t>(3, Socket::Option<int32_t>::TCP_NO_DELAY));
-    client.set_option(Socket::OptionValue<struct linger>(linger_option, Socket::Option<struct linger>::LINGER));
+    client.set_option(Socket::OptionValue<std::int32_t>(
+        3, Socket::Option<int32_t>::TCP_NO_DELAY));
+    client.set_option(Socket::OptionValue<struct linger>(
+        linger_option, Socket::Option<struct linger>::LINGER));
 
     // The kernel doubles this size, to keep some caching & config things
-    client.set_option(Socket::OptionValue<int32_t>(1024 * 8, Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE));
+    client.set_option(Socket::OptionValue<int32_t>(
+        1024 * 8, Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE));
 
-    const auto linger_opt_return = client.get_option(Socket::Option<struct linger>::LINGER);
-    cout << "Is linger enabled? " << (linger_opt_return.value_type.l_onoff ? "true" : "false" ) << endl;
-    cout << "Linger timeout:" << to_string(linger_opt_return.value_type.l_linger) << endl; 
-    cout << "Is no delay enabled? " << (client.get_option(Socket::Option<int32_t>::TCP_NO_DELAY).value_type ? "true" : "false") << endl;  
-    cout << "Is corking enabled? " << (client.get_option(Socket::Option<int32_t>::TCP_CORKING).value_type ? "true" : "false") << endl;  
-    cout << "Read buffer size: " << client.get_option(Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE).value_type << endl; 
-
-
+    const auto linger_opt_return =
+        client.get_option(Socket::Option<struct linger>::LINGER);
+    cout << "Is linger enabled? "
+         << (linger_opt_return.value_type.l_onoff ? "true" : "false") << endl;
+    cout << "Linger timeout:"
+         << to_string(linger_opt_return.value_type.l_linger) << endl;
+    cout << "Is no delay enabled? "
+         << (client.get_option(Socket::Option<int32_t>::TCP_NO_DELAY).value_type
+                 ? "true"
+                 : "false")
+         << endl;
+    cout << "Is corking enabled? "
+         << (client.get_option(Socket::Option<int32_t>::TCP_CORKING).value_type
+                 ? "true"
+                 : "false")
+         << endl;
+    cout << "Read buffer size: "
+         << client.get_option(Socket::Option<int32_t>::READ_BUFFER_SIZE_TYPE)
+                .value_type
+         << endl;
 }
 
 void on_disconnected(const ClientSocket& client)
 {
-    cout << "The client: " << client.host_ip << ":" << client.port << " has just disconnected!" << endl;
+    cout << "The client: " << client.host_ip << ":" << client.port
+         << " has just disconnected!" << endl;
 }
 
-vector<uint8_t> callback(const ClientSocket& client, vector<uint8_t> data)
+/**
+ * This function reads as many necessary bytes to compose a KnowNothing
+ * message protocol
+ */
+vector<uint8_t> parse_read_buffer(ByteBuffer& buffer)
 {
+    // For now, there is no need to delegate the messages for a specific
+    // protocol handler
+    const auto know_nothing_version = buffer.get_integer1();
+    const auto number_of_messages = buffer.get_integer1();
 
+    vector<uint8_t> output;
+    output.push_back(know_nothing_version);
+    output.push_back(number_of_messages);
+    for (uint8_t message_number = 0; message_number < number_of_messages;
+         message_number++)
+    {
+        // Get the next message size
+        const auto message_size = buffer.get_integer4();
+        for (auto& c : knownothing::serialize(message_size))
+            output.push_back(c);
+
+        if (message_size > buffer.size())
+        {
+            // invalid message
+            cerr << "Message is invalid!" << endl;
+            return {};
+        }
+        auto response = buffer.get_next(message_size);
+
+        output.reserve(response.size());
+        output.insert(output.end(), response.begin(), response.end());
+    }
+    return output;
+}
+
+vector<uint8_t> callback(const ClientSocket& client, ByteBuffer& buffer)
+{
     cout << "Received data from client: " << client.host_ip << ":"
          << to_string(client.port) << endl;
 
-    auto request = RequestMessage::read(data);
+    auto request = RequestMessage::read(parse_read_buffer(buffer));
     if (request == nullptr)
     {
         string output_message =
