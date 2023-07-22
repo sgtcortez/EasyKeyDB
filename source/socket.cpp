@@ -1,8 +1,12 @@
 #include "socket.hpp"
 
 #include <arpa/inet.h>
+#include <bits/stdint-uintn.h>
 #include <netinet/tcp.h>
+#include <cstdint>
+#include <cstdio>
 #include <iostream>
+#include <memory>
 #include <netinet/in.h>
 
 using namespace std;
@@ -123,42 +127,33 @@ void ClientSocket::write(const vector<uint8_t> message) const
     }
 }
 
-const vector<uint8_t> ClientSocket::read() const
+void ClientSocket::read()
 {
     // 16 KiB buffer
     uint8_t buffer[1024 * 16];
 
-    const auto buffer_size = sizeof(buffer) / sizeof(buffer[0]);
-
-    vector<uint8_t> vector;
+    const int64_t buffer_size = sizeof(buffer) / sizeof(buffer[0]);
     do
     {
         // Uses the read system call to read from kernel buffer to our buffer
         // man 2 read
         const auto bytes_read = ::read(file_descriptor, buffer, buffer_size);
+
         if (bytes_read < 0)
         {
-            cerr << "Could not execute read systemcall in fd: "
-                 << to_string(file_descriptor) << endl;
-            return {0};
+            // An error occured while trying to read from buffer
+            perror("read");
+            return;
         }
 
-        // TODO: Since vector is backed by an array, we need to improve the
-        // number of times that realloc is done under the hood to be more
-        // effective Maybe(?)
-        // https://cplusplus.com/reference/vector/vector/reserve/
+        read_buffer.put_array(buffer, bytes_read);
 
-        copy(buffer, buffer + bytes_read, back_inserter(vector));
-
-        // We request for N bytes, returned N - 1, that means that we have
-        // nothing else to read from the file descriptor
         if (bytes_read < buffer_size)
         {
+            // Reached the end of the buffer
             break;
         }
-
     } while (true);
-    return vector;
 }
 
 ServerSocket ServerSocket::from(uint16_t port)

@@ -18,6 +18,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(
     SOURCES
     source/socket.cpp
+    source/byte_buffer.cpp
     source/know_nothing.cpp
     source/easykey.cpp
     source/server.cpp

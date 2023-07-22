@@ -1,6 +1,7 @@
 #pragma once
 
 #include "socket.hpp"
+#include "byte_buffer.hpp"
 
 #include <bits/stdint-uintn.h>
 #include <cstdint>
@@ -22,8 +23,7 @@ namespace easykey
  * https://github.com/an-tao/trantor/blob/35592d542f8eeb1345844cfa8a202ed96707d379/trantor/net/callbacks.h#L34
  */
 using ReceiveMessageCallback =
-    std::function<std::vector<uint8_t>(const ClientSocket&,
-                                       std::vector<std::uint8_t>)>;
+    std::function<std::vector<uint8_t>(const ClientSocket&, ByteBuffer&)>;
 
 using ClientConnectedCallback = std::function<void(const ClientSocket&)>;
 using ClientDisconnectedCallback = std::function<void(const ClientSocket&)>;
