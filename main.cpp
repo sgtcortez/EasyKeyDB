@@ -1,6 +1,5 @@
 #include "byte_buffer.hpp"
 #include "easykey.hpp"
-#include "know_nothing.hpp"
 #include "server.hpp"
 #include "database.hpp"
 
@@ -77,48 +76,12 @@ void on_disconnected(const ClientSocket& client)
          << " has just disconnected!" << endl;
 }
 
-/**
- * This function reads as many necessary bytes to compose a KnowNothing
- * message protocol
- */
-vector<uint8_t> parse_read_buffer(ByteBuffer& buffer)
-{
-    // For now, there is no need to delegate the messages for a specific
-    // protocol handler
-    const auto know_nothing_version = buffer.get_integer1();
-    const auto number_of_messages = buffer.get_integer1();
-
-    vector<uint8_t> output;
-    output.push_back(know_nothing_version);
-    output.push_back(number_of_messages);
-    for (uint8_t message_number = 0; message_number < number_of_messages;
-         message_number++)
-    {
-        // Get the next message size
-        const auto message_size = buffer.get_integer4();
-        for (auto& c : knownothing::serialize(message_size))
-            output.push_back(c);
-
-        if (message_size > buffer.size())
-        {
-            // invalid message
-            cerr << "Message is invalid!" << endl;
-            return {};
-        }
-        auto response = buffer.get_next(message_size);
-
-        output.reserve(response.size());
-        output.insert(output.end(), response.begin(), response.end());
-    }
-    return output;
-}
-
 vector<uint8_t> callback(const ClientSocket& client, ByteBuffer& buffer)
 {
     cout << "Received data from client: " << client.host_ip << ":"
          << to_string(client.port) << endl;
 
-    auto request = RequestMessage::read(parse_read_buffer(buffer));
+    auto request = RequestMessage::read(buffer);
     if (request == nullptr)
     {
         string output_message =
