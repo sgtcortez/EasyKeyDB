@@ -19,7 +19,6 @@ set(
     SOURCES
     source/socket.cpp
     source/byte_buffer.cpp
-    source/know_nothing.cpp
     source/easykey.cpp
     source/server.cpp
     source/database.cpp
