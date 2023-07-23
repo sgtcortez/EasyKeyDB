@@ -3,7 +3,6 @@
 #include "socket.hpp"
 #include "byte_buffer.hpp"
 
-#include <bits/stdint-uintn.h>
 #include <cstdint>
 #include <sys/epoll.h>
 #include <sys/socket.h>

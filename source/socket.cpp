@@ -1,7 +1,6 @@
 #include "socket.hpp"
 
 #include <arpa/inet.h>
-#include <bits/stdint-uintn.h>
 #include <netinet/tcp.h>
 #include <cstdint>
 #include <cstdio>

@@ -7,6 +7,7 @@
 #include <cstring>       // For functions like memcpy
 #include <netinet/in.h>  // For the sockaddr_in structure
 #include <sys/socket.h>  // For socket-related functions and constants
+#include <sys/time.h>    // For struct timeval
 #include <unistd.h>      // For close function
 #include <memory>
 #include <vector>  // For std::vector

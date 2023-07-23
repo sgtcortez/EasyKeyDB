@@ -4,9 +4,6 @@
 #include "server.hpp"
 #include "database.hpp"
 
-#include <bits/stdint-intn.h>
-#include <bits/stdint-uintn.h>
-#include <bits/types/struct_timeval.h>
 #include <sys/socket.h>
 #include <algorithm>
 #include <cstdint>
