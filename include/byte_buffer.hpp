@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <bits/c++config.h>
 #include <cstdint>
 #include <memory>
 #include <queue>

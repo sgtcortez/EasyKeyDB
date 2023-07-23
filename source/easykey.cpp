@@ -2,7 +2,6 @@
 #include "know_nothing.hpp"
 
 #include <array>
-#include <bits/stdint-uintn.h>
 #include <cstdint>
 #include <iostream>
 #include <memory>

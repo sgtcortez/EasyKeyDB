@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
-#include <bits/stdint-uintn.h>
 
 using namespace std;
 using namespace easykey;

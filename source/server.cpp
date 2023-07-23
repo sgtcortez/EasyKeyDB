@@ -10,9 +10,6 @@
 #include <cstring>
 #include <iterator>
 #include <memory>
-#include <asm-generic/socket.h>
-#include <bits/stdint-intn.h>
-#include <bits/stdint-uintn.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
