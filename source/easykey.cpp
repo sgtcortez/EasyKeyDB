@@ -22,72 +22,89 @@ static bool is_key_valid(const string& key)
 
 unique_ptr<RequestMessage> RequestMessage::read(ByteBuffer& buffer)
 {
-    /**
-     * First byte is the protocol version
-     */
-    const auto protocol =
-        static_cast<knownothing::Protocol>(buffer.get_integer1());
-
-    const auto messages_number = buffer.get_integer1();
-    switch (messages_number)
+    try
     {
-        case 1:
-            // when is a read operation, only a message will be provided
-        case 2:
-            // when is a write operation, two messages will be provided
-            break;
-        default:
-            cerr << "Invalid message! To read a message must be provided, to "
-                    "write, "
-                    "two messages must be provided!"
+        /**
+         * First byte is the protocol version
+         */
+        const auto protocol =
+            static_cast<knownothing::Protocol>(buffer.get_integer1());
+
+        const auto messages_number = buffer.get_integer1();
+        switch (messages_number)
+        {
+            case 1:
+                // when is a read operation, only a message will be provided
+            case 2:
+                // when is a write operation, two messages will be provided
+                break;
+            default:
+                cerr << "Invalid message! To read a message must be provided, "
+                        "to "
+                        "write, "
+                        "two messages must be provided!"
+                     << endl;
+                // Would be nice to use optional ...
+                return unique_ptr<RequestMessage>(nullptr);
+        }
+
+        /**
+         * Next four bytes are the bytes that compose the first message 4 byte
+         * size
+         */
+        const auto first_message_size = buffer.get_integer4();
+
+        /**
+         * From the fifth byte until first messge size, its the first message
+         */
+        const auto teste = buffer.get_next(first_message_size);
+        string first_message;
+        for (const auto& c : teste)
+        {
+            char c1 = (char)c;
+            first_message += c1;
+        }
+
+        /**
+         * Check if the first message is a valid key value
+         */
+        if (!is_key_valid(first_message))
+        {
+            cerr << "The key: \"" + first_message +
+                        "\" does not follow the regex: \"" + regex_value + "\""
                  << endl;
+
             // Would be nice to use optional ...
             return unique_ptr<RequestMessage>(nullptr);
+        }
+
+        if (!buffer.has_content()) 
+        {
+            // Its a read operation
+            return unique_ptr<RequestMessage>(new RequestMessage{protocol, first_message, {}});
+        }
+
+        /**
+         * After the first message, there are four bytes that compose the second
+         * message size
+         */
+        const auto second_message_size = buffer.get_integer4();
+
+        /**
+         * Creates the vector for the second message.
+         * NOTE: This is just a raw byte array, so no data is checked!
+         */
+        vector<uint8_t> second_message = buffer.get_next(second_message_size);
+
+        return unique_ptr<RequestMessage>(
+            new RequestMessage{protocol, first_message, second_message});
     }
-
-    /**
-     * Next four bytes are the bytes that compose the first message 4 byte size
-     */
-    const auto first_message_size = buffer.get_integer4();
-
-    /**
-     * From the fifth byte until first messge size, its the first message
-     */
-    const auto teste = buffer.get_next(first_message_size);
-    string first_message;
-    for (const auto& c : teste)
+    catch (EmptyBufferException& exception)
     {
-        char c1 = (char)c;
-        first_message += c1;
-    }
-
-    /**
-     * Check if the first message is a valid key value
-     */
-    if (!is_key_valid(first_message))
-    {
-        cerr << "The key: \"" + first_message +
-                    "\" does not follow the regex: \"" + regex_value + "\""
+        cerr << "Message does not follow KnowNothing Protocol specification!"
              << endl;
-
-        // Would be nice to use optional ...
         return unique_ptr<RequestMessage>(nullptr);
     }
-
-    /**
-     * After the first message, there are four bytes that compose the second
-     * message size
-     */
-    const auto second_message_size = buffer.get_integer4();
-
-    /**
-     * Creates the vector for the second message.
-     * NOTE: This is just a raw byte array, so no data is checked!
-     */
-    vector<uint8_t> second_message = buffer.get_next(second_message_size);
-
-    return unique_ptr<RequestMessage>(
-        new RequestMessage{protocol, first_message, second_message});
 }
 
 const vector<uint8_t> ResponseMessage::write() const
