@@ -2,8 +2,10 @@
 
 #include <array>
 #include <cstdint>
+#include <exception>
 #include <memory>
 #include <queue>
+#include <stdexcept>
 #include <vector>
 
 namespace easykey
@@ -31,4 +33,15 @@ class ByteBuffer
      */
     std::queue<std::uint8_t> buffer;
 };
+
+class EmptyBufferException : public std::runtime_error
+{
+  private:
+    const char* message;
+
+  public:
+    EmptyBufferException(const std::string message);
+    virtual const char* what() const noexcept override;
+};
+
 };  // namespace easykey
