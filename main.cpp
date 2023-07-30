@@ -125,7 +125,6 @@ vector<uint8_t> callback(const ClientSocket& client, ByteBuffer& buffer)
 int main()
 {
     auto server = Server(9000, 10, callback, on_connection, on_disconnected);
-    server.start();
 
     server_ptr = &server;
 
@@ -135,6 +134,10 @@ int main()
      */
     signal(SIGTERM, signal_handler);
     signal(SIGINT, signal_handler);
+
+    server.start();
+
+    cout << "Finished!" << endl;
 
     return 0;
 }
