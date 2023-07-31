@@ -185,7 +185,7 @@ class Socket
         return result;
     }
 
-  protected:
+  public:
     const std::int32_t file_descriptor;
 };
 

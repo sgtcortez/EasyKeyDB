@@ -21,7 +21,6 @@ set(
     source/byte_buffer.cpp
     source/easykey.cpp
     source/server.cpp
-    source/database.cpp
     main.cpp
 )
 
