@@ -84,9 +84,15 @@ int main(int argc, char** argv)
         fseek(openfile, 0, SEEK_SET);
 
         // reads the content of the file to the buffer
-        if (fread(request->messages[1]->array, sizeof(char), request->messages[1]->size, openfile) < 0) 
+        const size_t bytes_read = fread(request->messages[1]->array, sizeof(char), request->messages[1]->size, openfile);
+        if (bytes_read < 0)
         {
             perror("fread: ");
+            return 1;
+        }
+        if (bytes_read != request->messages[1]->size)
+        {
+            fprintf(stderr, "fread requested: %d but read only: %lu! This indicates an error!\n", request->messages[1]->size, bytes_read);
             return 1;
         }
 
