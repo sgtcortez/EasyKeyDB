@@ -178,8 +178,7 @@ void Server::handle_request(ClientSocket *client)
     // Reads the content from the buffer
     client->read();
 
-    const auto client_response =
-        receive_message_callback(*client, client->read_buffer);
+    const auto client_response = receive_message_callback(*client);
     if (!client_response.empty())
     {
         client->write(client_response);

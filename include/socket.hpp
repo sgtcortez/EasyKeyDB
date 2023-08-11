@@ -220,17 +220,17 @@ class ClientSocket : public Socket
     easykey::timestamp last_seen;
     std::uint32_t iterations;
 
+    /**
+     * This buffer is where the data is stored after every socket read
+     */
+    ByteBuffer read_buffer;
+
   private:
     /**
      * Reads the content of the socket buffer. And then, stores it into the
      * client connection buffer
      */
     void read();
-
-    /**
-     * This buffer is where the
-     */
-    ByteBuffer read_buffer;
 
     /**
      * Writes the content to the socket buffer

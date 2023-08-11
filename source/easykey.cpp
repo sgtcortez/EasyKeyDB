@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 #include "byte_buffer.hpp"
+#include "socket.hpp"
 
 using namespace easykey;
 using namespace std;
@@ -153,23 +154,22 @@ void Database::copy_to(const string key, int32_t output_fd) const
     cout << "Successfully sent file over sendfile to client " << endl;
 }
 
-void Handler::parse_request(ByteBuffer& buffer, const int32_t output_fd)
+void Handler::parse_request(ClientSocket& socket)
 {
     try
     {
         const auto protocol =
-            static_cast<knownothing::Protocol>(buffer.get_integer1());
+            static_cast<knownothing::Protocol>(socket.read_buffer.get_integer1());
         if (protocol != knownothing::Protocol::V1)
         {
             cerr << "Invalid Know Nothing Protocol " << endl;
-            write_dynamic_content(
-                output_fd,
+            write_dynamic_content(socket.file_descriptor,
                 ResponseStatus::CLIENT_ERROR,
                 "Only the first version of Know Nothing is supported!");
             return;
         }
 
-        const auto messages = buffer.get_integer1();
+        const auto messages = socket.read_buffer.get_integer1();
         if (messages != 1 && messages != 2)
         {
             // handle
@@ -177,18 +177,18 @@ void Handler::parse_request(ByteBuffer& buffer, const int32_t output_fd)
                  << " One or Two messages are allowed. Provided is " << messages
                  << endl;
             write_dynamic_content(
-                output_fd,
+                socket.file_descriptor,
                 ResponseStatus::CLIENT_ERROR,
                 "Invalid EasyKey Message! Allowed is 1 or 2 Messages!");
             return;
         }
 
-        const auto first_message_size = buffer.get_integer4();
+        const auto first_message_size = socket.read_buffer.get_integer4();
         string first_message;
         first_message.reserve(first_message_size);
 
         // Return the next buffer messages
-        for (const auto& ch : buffer.get_next(first_message_size))
+        for (const auto& ch : socket.read_buffer.get_next(first_message_size))
         {
             first_message += ch;
         }
@@ -196,14 +196,14 @@ void Handler::parse_request(ByteBuffer& buffer, const int32_t output_fd)
         if (!is_key_valid(first_message))
         {
             cerr << "The key: " << first_message << " is not valid ..." << endl;
-            write_dynamic_content(output_fd,
+            write_dynamic_content(socket.file_descriptor,
                                   ResponseStatus::CLIENT_ERROR,
                                   "The key: " + first_message +
                                       " is not valid! Must be alphanumeric!");
             return;
         }
 
-        if (!buffer.has_content())
+        if (!socket.read_buffer.has_content())
         {
             // Its a read operation
             if (!database.exists(first_message))
@@ -211,22 +211,22 @@ void Handler::parse_request(ByteBuffer& buffer, const int32_t output_fd)
                 cerr << "The key: " << first_message << " was not found!"
                      << endl;
                 // The key does not exists
-                write_dynamic_content(output_fd,
+                write_dynamic_content(socket.file_descriptor,
                                       ResponseStatus::CLIENT_ERROR,
                                       "The key: " + first_message +
                                           " was not found!");
                 return;
             }
             // Send the value to the output fd
-            database.copy_to(first_message, output_fd);
+            database.copy_to(first_message, socket.file_descriptor);
             return;
         }
 
-        const auto second_message_size = buffer.get_integer4();
-        const auto second_message = buffer.get_next(second_message_size);
+        const auto second_message_size = socket.read_buffer.get_integer4();
+        const auto second_message = socket.read_buffer.get_next(second_message_size);
 
         database.write(first_message, second_message);
-        write_dynamic_content(output_fd,
+        write_dynamic_content(socket.file_descriptor,
                               ResponseStatus::OK,
                               "The key: " + first_message +
                                   " was successfully written!");
@@ -238,7 +238,7 @@ void Handler::parse_request(ByteBuffer& buffer, const int32_t output_fd)
         cerr << "Message does not follow KnowNothing Protocol specification!"
              << endl;
         write_dynamic_content(
-            output_fd,
+            socket.file_descriptor,
             ResponseStatus::CLIENT_ERROR,
             "Message does not follow KnowNothing Protocol Specification!");
         return;
