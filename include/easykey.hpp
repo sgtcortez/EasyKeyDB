@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "socket.hpp"
+
 #define NUMBER_OF_FILES 5
 
 namespace knownothing
@@ -94,7 +96,7 @@ class Handler
     Database database;
 
   public:
-    void parse_request(ByteBuffer& buffer, const std::int32_t output_fd);
+    void parse_request(ClientSocket& socket);
 };
 
 };  // namespace easykey
