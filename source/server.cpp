@@ -178,12 +178,8 @@ void Server::handle_request(ClientSocket *client)
     // Reads the content from the buffer
     client->read();
 
-    const auto client_response = receive_message_callback(*client);
-    if (!client_response.empty())
-    {
-        client->write(client_response);
-        cout << "Written data to client !" << endl;
-    }
+    // Send the message to the client
+    receive_message_callback(*client);
 }
 
 void Server::handle_client_disconnected(const std::int32_t file_descriptor)

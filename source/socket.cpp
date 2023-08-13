@@ -1,12 +1,17 @@
 #include "socket.hpp"
 
 #include <arpa/inet.h>
+#include <bits/stdint-intn.h>
+#include <bits/stdint-uintn.h>
 #include <netinet/tcp.h>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
 #include <memory>
 #include <netinet/in.h>
+#include <sys/sendfile.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 using namespace std;
 using namespace easykey;
@@ -114,15 +119,29 @@ ClientSocket::ClientSocket(const int32_t file_descriptor,
     // Starts the iterations with zero
     iterations = 0;
 }
-void ClientSocket::write(const vector<uint8_t> message) const
+void ClientSocket::write(const uint8_t *buffer,
+                         const uint32_t size,
+                         bool more_coming) const
 {
-    /*
-     * Use the write systemcall to write to the client socket
-     * man 2 write
+    /**
+     * With the MSG_MORE, we tell the kernel that we have more data to send to
+     * this socket https://man7.org/linux/man-pages/man2/send.2.html
      */
-    if (::write(file_descriptor, message.data(), message.size()) < 0)
+    int32_t flags = more_coming ? MSG_MORE : 0;
+    if (::send(file_descriptor, buffer, size, flags) == -1)
     {
-        throw "Could not write data!";
+        cerr << "Could not send data to the filedescriptor: " << file_descriptor
+             << endl;
+    }
+}
+
+void ClientSocket::write(const int32_t file_descriptor,
+                         off_t offset,
+                         const int64_t size) const
+{
+    if (::sendfile(this->file_descriptor, file_descriptor, &offset, size) == -1)
+    {
+        cerr << "Could not use sendfile system call!" << endl;
     }
 }
 

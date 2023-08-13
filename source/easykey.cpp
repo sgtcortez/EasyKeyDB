@@ -43,9 +43,8 @@ constexpr static int32_t OPEN_FILE_MODE = S_IRUSR | S_IWUSR;
 
 bool is_key_valid(const string& key);
 uint8_t hash(const string key, uint8_t mod);
-void write_dynamic_content(const int32_t output_fd,
-                           ResponseStatus status,
-                           const string error_description);
+vector<uint8_t> write_dynamic_content(ResponseStatus status,
+                                      const string error_description);
 
 File::File(const int32_t fd, const string filename) : fd(fd), filename(filename)
 {
@@ -63,15 +62,6 @@ File::~File()
 }
 
 Database::Database()
-    : success_header{
-          0x01,  // know nothing protocol
-          0x02,  // number of messages
-          0x01,  // first message byte
-          0x00,  // second message byte
-          0x00,  // third message byte
-          0x00,  // fourth message byte
-          0x01   // First message value(1 sucess)
-      }
 {
     uint8_t files = NUMBER_OF_FILES;
     opened_files.reserve(files);
@@ -121,51 +111,29 @@ void Database::write(const string key, const vector<uint8_t> data)
     stored.insert(make_pair(key, storage));
 }
 
-bool Database::exists(string key) const
+const FileStorage* Database::read(const string key) const
 {
-    return stored.find(key) != stored.end();
-}
-
-void Database::copy_to(const string key, int32_t output_fd) const
-{
-    const auto storage = stored.find(key)->second;
-
-    /**
-     * With the MSG_MORE, we tell the kernel that we have more data to send to
-     * this socket https://man7.org/linux/man-pages/man2/send.2.html
-     */
-    if (::send(output_fd,
-               success_header,
-               sizeof(success_header) / sizeof(success_header[0]),
-               MSG_MORE) == -1)
+    const auto value = stored.find(key);
+    if (value == stored.end())
     {
-        perror("send:");
-        return;
+        return nullptr;
     }
-
-    if (sendfile(output_fd,
-                 storage.file->fd,
-                 (off_t*)&(storage.offset),
-                 storage.size) == -1)
-    {
-        perror("sendfile: ");
-        return;
-    }
-    cout << "Successfully sent file over sendfile to client " << endl;
+    return &(value->second);
 }
 
 void Handler::parse_request(ClientSocket& socket)
 {
     try
     {
-        const auto protocol =
-            static_cast<knownothing::Protocol>(socket.read_buffer.get_integer1());
+        const auto protocol = static_cast<knownothing::Protocol>(
+            socket.read_buffer.get_integer1());
         if (protocol != knownothing::Protocol::V1)
         {
             cerr << "Invalid Know Nothing Protocol " << endl;
-            write_dynamic_content(socket.file_descriptor,
+            const auto response = write_dynamic_content(
                 ResponseStatus::CLIENT_ERROR,
                 "Only the first version of Know Nothing is supported!");
+            socket.write(response.data(), response.size(), false);
             return;
         }
 
@@ -176,10 +144,10 @@ void Handler::parse_request(ClientSocket& socket)
             cerr << "Invalid Easy Key Message!"
                  << " One or Two messages are allowed. Provided is " << messages
                  << endl;
-            write_dynamic_content(
-                socket.file_descriptor,
+            const auto response = write_dynamic_content(
                 ResponseStatus::CLIENT_ERROR,
                 "Invalid EasyKey Message! Allowed is 1 or 2 Messages!");
+            socket.write(response.data(), response.size(), false);
             return;
         }
 
@@ -196,40 +164,49 @@ void Handler::parse_request(ClientSocket& socket)
         if (!is_key_valid(first_message))
         {
             cerr << "The key: " << first_message << " is not valid ..." << endl;
-            write_dynamic_content(socket.file_descriptor,
-                                  ResponseStatus::CLIENT_ERROR,
-                                  "The key: " + first_message +
-                                      " is not valid! Must be alphanumeric!");
+            const auto response = write_dynamic_content(
+                ResponseStatus::CLIENT_ERROR,
+                "The key: " + first_message +
+                    " is not valid! Must be alphanumeric!");
+            socket.write(response.data(), response.size(), false);
             return;
         }
 
-        if (!socket.read_buffer.has_content())
+        // Its a read operation
+        if (messages == 1)
         {
-            // Its a read operation
-            if (!database.exists(first_message))
+            const auto value = database.read(first_message);
+            if (value == nullptr)
             {
+                // not found
                 cerr << "The key: " << first_message << " was not found!"
                      << endl;
-                // The key does not exists
-                write_dynamic_content(socket.file_descriptor,
-                                      ResponseStatus::CLIENT_ERROR,
-                                      "The key: " + first_message +
-                                          " was not found!");
-                return;
+                const auto response =
+                    write_dynamic_content(ResponseStatus::CLIENT_ERROR,
+                                          "The key" + first_message +
+                                              " was not found!");
+                socket.write(response.data(), response.size(), false);
             }
-            // Send the value to the output fd
-            database.copy_to(first_message, socket.file_descriptor);
+            // send the first message
+            socket.write(success_header,
+                         sizeof(success_header) / sizeof(success_header[0]),
+                         true);
+            // send the second message
+            socket.write(value->file->fd, value->offset, value->size);
             return;
         }
 
+        // Its a write operation
         const auto second_message_size = socket.read_buffer.get_integer4();
-        const auto second_message = socket.read_buffer.get_next(second_message_size);
+        const auto second_message =
+            socket.read_buffer.get_next(second_message_size);
 
         database.write(first_message, second_message);
-        write_dynamic_content(socket.file_descriptor,
-                              ResponseStatus::OK,
-                              "The key: " + first_message +
-                                  " was successfully written!");
+        const auto response =
+            write_dynamic_content(ResponseStatus::OK,
+                                  "The key: " + first_message +
+                                      " was successfully written!");
+        socket.write(response.data(), response.size(), false);
         cout << "The key: " << first_message << " was successfully written!"
              << endl;
     }
@@ -237,10 +214,10 @@ void Handler::parse_request(ClientSocket& socket)
     {
         cerr << "Message does not follow KnowNothing Protocol specification!"
              << endl;
-        write_dynamic_content(
-            socket.file_descriptor,
+        const auto response = write_dynamic_content(
             ResponseStatus::CLIENT_ERROR,
             "Message does not follow KnowNothing Protocol Specification!");
+        socket.write(response.data(), response.size(), false);
         return;
     }
 }
@@ -255,9 +232,8 @@ uint8_t hash(const string key, uint8_t mod)
     return key.size() % mod;
 }
 
-void write_dynamic_content(const int32_t output_fd,
-                           ResponseStatus status,
-                           const string error_description)
+vector<uint8_t> write_dynamic_content(ResponseStatus status,
+                                      const string error_description)
 {
     vector<uint8_t> response;
     response.reserve(100);
@@ -287,9 +263,5 @@ void write_dynamic_content(const int32_t output_fd,
     {
         response.push_back(ch);
     }
-
-    if (::write(output_fd, response.data(), response.size()) == -1)
-    {
-        cerr << "Error while trying to write client error " << endl;
-    }
+    return response;
 }

@@ -8,7 +8,8 @@
 #include <netinet/in.h>  // For the sockaddr_in structure
 #include <sys/socket.h>  // For socket-related functions and constants
 #include <sys/time.h>    // For struct timeval
-#include <unistd.h>      // For close function
+#include <sys/types.h>
+#include <unistd.h>  // For close function
 #include <memory>
 #include <vector>  // For std::vector
 #include <string>  // For std::string
@@ -185,7 +186,7 @@ class Socket
         return result;
     }
 
-  public:
+  protected:
     const std::int32_t file_descriptor;
 };
 
@@ -225,17 +226,35 @@ class ClientSocket : public Socket
      */
     ByteBuffer read_buffer;
 
+    /**
+     * Writes the content to the socket buffer
+     * If more_coming is true, we tell the kernel to add to the socket buffer,
+     * instead of writing immediately
+     */
+    void write(const std::uint8_t* buffer,
+               const std::uint32_t size,
+               bool more_coming) const;
+
+    /**
+     * Writes the content of the file descriptor, starting from offset and with
+     * the size of size
+     */
+    void write(const std::int32_t file_descriptor,
+               off_t offset,
+               const std::int64_t size) const;
+
+    /**
+     * Read from client socket buffer.
+     * May trigger the socket.read call
+     */
+    std::vector<uint8_t> read(std::uint32_t bytes);
+
   private:
     /**
      * Reads the content of the socket buffer. And then, stores it into the
      * client connection buffer
      */
     void read();
-
-    /**
-     * Writes the content to the socket buffer
-     */
-    void write(const std::vector<std::uint8_t> content) const;
 };
 
 template <>

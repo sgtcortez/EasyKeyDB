@@ -81,19 +81,26 @@ class Database
   public:
     Database();
     void write(const std::string key, const std::vector<std::uint8_t> data);
-    bool exists(const std::string key) const;
-    void copy_to(const std::string key, std::int32_t output_fd) const;
+    const FileStorage* read(const std::string key) const;
 
   private:
     std::vector<std::unique_ptr<File>> opened_files;
     std::unordered_map<std::string, FileStorage> stored;
-    const std::uint8_t success_header[7];
 };
 
 class Handler
 {
   private:
     Database database;
+    const std::uint8_t success_header[7] = {
+        0x01,  // know nothing protocol
+        0x02,  // number of messages
+        0x01,  // first message byte
+        0x00,  // second message byte
+        0x00,  // third message byte
+        0x00,  // fourth message byte
+        0x01   // First message value(1 sucess)
+    };
 
   public:
     void parse_request(ClientSocket& socket);
