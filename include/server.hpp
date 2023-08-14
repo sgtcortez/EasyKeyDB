@@ -21,7 +21,7 @@ namespace easykey
  * This was inspired from:
  * https://github.com/an-tao/trantor/blob/35592d542f8eeb1345844cfa8a202ed96707d379/trantor/net/callbacks.h#L34
  */
-using ReceiveMessageCallback = std::function<std::vector<uint8_t>(ClientSocket&)>;
+using ReceiveMessageCallback = std::function<void(ClientSocket&)>;
 using ClientConnectedCallback = std::function<void(const ClientSocket&)>;
 using ClientDisconnectedCallback = std::function<void(const ClientSocket&)>;
 

@@ -44,12 +44,11 @@ void on_disconnected(const ClientSocket& client)
          << " has just disconnected!" << endl;
 }
 
-vector<uint8_t> on_message(ClientSocket& client)
+void on_message(ClientSocket& client)
 {
     cout << "The client: " << client.host_ip << ":" << client.port
          << " sent a message!" << endl;
     handler.parse_request(client);
-    return {};
 }
 
 int main()
