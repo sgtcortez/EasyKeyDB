@@ -82,7 +82,18 @@ To understand how this program works, and how we can acomplish a reasonable resp
     So, instead of doing a **random access** to the file, we do this to the page cache ...   
     Which, in turns, turns out to be the **main memory** ...
 
+- Input/Output Multiplexing
 
+    Use one thread for every socket that comes in, can be wastefull and heavy ...   
+    So, instead of creating a new thread every time, we multiplex the a *thread* which runs the **TCP server**, which will listen(man 2 listen) for incoming requests, messages and disconnections.    
+    So, when the kernel signals us(a new client, we can read from a file descriptor), then, we process the request.  
+
+    For linux, we are using the **Epoll Functions**.   
+
+    So, basically, instead of using the one thread to execute the **accept**(to accept new tcp clients), and another "N"(depending of the number of clients(accepted) connected) threads to execute the **read** function, we can to both of them, with epoll.   
+
+    So, we have an **infinite loop** which, waits for the **epoll** systemcall return, then, we process the events.   
+    If there is a client awaiting to be accepted, we accept, if there is a client which have sent data, we read from it and so on ...
 
 # Running
 
