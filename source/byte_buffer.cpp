@@ -1,31 +1,16 @@
 #include "byte_buffer.hpp"
 #include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <iostream>
 #include <stdexcept>
 
 using namespace std;
 using namespace easykey;
 
-void ByteBuffer::put_integer1(const uint8_t value)
+ByteBuffer::ByteBuffer(const function<vector<uint8_t>(void)> source_trigger)
+    : source_trigger(source_trigger)
 {
-    buffer.push(value);
-}
-
-void ByteBuffer::put_integer4(const uint32_t value)
-{
-    buffer.push(value);
-    buffer.push(value >> 8);
-    buffer.push(value >> 16);
-    buffer.push(value >> 24);
-}
-
-void ByteBuffer::put_array(const uint8_t* array, const uint32_t size)
-{
-    for (uint32_t index = 0; index < size; index++)
-    {
-        buffer.push(array[index]);
-    }
 }
 
 uint32_t ByteBuffer::size() const
@@ -35,10 +20,7 @@ uint32_t ByteBuffer::size() const
 
 uint8_t ByteBuffer::get_integer1()
 {
-    if (buffer.empty())
-    {
-        throw EmptyBufferException("Buffer is empty!");
-    }
+    ensure_has_requested(1);
     auto value = buffer.front();
     buffer.pop();
     return value;
@@ -46,11 +28,7 @@ uint8_t ByteBuffer::get_integer1()
 
 uint32_t ByteBuffer::get_integer4()
 {
-    if (buffer.size() < 4)
-    {
-        throw EmptyBufferException("Buffer is empty!");
-    }
-
+    ensure_has_requested(4);
     uint32_t value = 0;
     for (uint8_t index = 0; index < 4; index++)
     {
@@ -63,10 +41,7 @@ uint32_t ByteBuffer::get_integer4()
 
 vector<uint8_t> ByteBuffer::get_next(const uint32_t size)
 {
-    if (buffer.size() < size)
-    {
-        throw EmptyBufferException("Buffer is empty!");
-    }
+    ensure_has_requested(size);
     vector<uint8_t> output;
     output.reserve(min((uint64_t)size, buffer.size()));
     for (uint32_t index = 0; index < size && !buffer.empty(); index++)
@@ -81,6 +56,27 @@ vector<uint8_t> ByteBuffer::get_next(const uint32_t size)
 bool ByteBuffer::has_content() const
 {
     return !buffer.empty();
+}
+
+void ByteBuffer::ensure_has_requested(const uint32_t size)
+{
+    if (buffer.size() >= size)
+    {
+        // No need to request more data to the source trigger
+        return;
+    }
+
+    for (const auto& value : source_trigger())
+    {
+        buffer.push(value);
+    }
+
+    // After triggering the source, still, there are no bytes available to
+    // satisfy the requested amount
+    if (buffer.size() < size)
+    {
+        throw EmptyBufferException("Buffer is empty!");
+    }
 }
 
 EmptyBufferException::EmptyBufferException(const string message)

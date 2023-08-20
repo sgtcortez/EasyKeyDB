@@ -1,13 +1,15 @@
 #include "socket.hpp"
 
 #include <arpa/inet.h>
-#include <bits/stdint-intn.h>
-#include <bits/stdint-uintn.h>
 #include <netinet/tcp.h>
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <iostream>
 #include <memory>
+#include <system_error>
+#include <vector>
 #include <netinet/in.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
@@ -111,7 +113,42 @@ ClientSocket::ClientSocket(const int32_t file_descriptor,
     : Socket(file_descriptor),
       start(chrono::steady_clock::now()),
       host_ip(host_ip),
-      port(port)
+      port(port),
+      read_buffer([this]() -> vector<uint8_t> {
+          // 16 KiB buffer
+          uint8_t buffer[1024 * 16];
+          const int64_t buffer_size = sizeof(buffer) / sizeof(buffer[0]);
+
+          // Uses the read system call to read from kernel buffer to our buffer
+          // man 2 read
+          const auto bytes_read =
+              ::read(this->file_descriptor, buffer, buffer_size);
+
+          // An error occurred
+          if (bytes_read < 0)
+          {
+              const auto error_code = errno;
+              if (error_code == EAGAIN || error_code == EWOULDBLOCK)
+              {
+                  /**
+                   The file descriptor is market as non blocked and the read
+                   would block because there are no bytes available or
+                   Socket::MINIMUM_BYTES_TO_CONSIDER_BUFFER_AS_READABLE is in
+                   use
+                  */
+                  cout
+                      << "No data available in the buffer for file descriptor: "
+                      << this->file_descriptor << endl;
+                  return {};
+              }
+              cerr << "Unexpected error occurred while trying to read from "
+                      "file descriptor: "
+                   << this->file_descriptor << endl;
+              return {};
+          }
+          vector<uint8_t> bytes(buffer, buffer + bytes_read);
+          return bytes;
+      })
 {
     // The last seen variable to check for idle connections once in a while
     last_seen = chrono::steady_clock::now();
@@ -143,35 +180,6 @@ void ClientSocket::write(const int32_t file_descriptor,
     {
         cerr << "Could not use sendfile system call!" << endl;
     }
-}
-
-void ClientSocket::read()
-{
-    // 16 KiB buffer
-    uint8_t buffer[1024 * 16];
-
-    const int64_t buffer_size = sizeof(buffer) / sizeof(buffer[0]);
-    do
-    {
-        // Uses the read system call to read from kernel buffer to our buffer
-        // man 2 read
-        const auto bytes_read = ::read(file_descriptor, buffer, buffer_size);
-
-        if (bytes_read < 0)
-        {
-            // An error occured while trying to read from buffer
-            perror("read");
-            return;
-        }
-
-        read_buffer.put_array(buffer, bytes_read);
-
-        if (bytes_read < buffer_size)
-        {
-            // Reached the end of the buffer
-            break;
-        }
-    } while (true);
 }
 
 ServerSocket ServerSocket::from(uint16_t port)

@@ -7,6 +7,7 @@
 #include <queue>
 #include <stdexcept>
 #include <vector>
+#include <functional>
 
 namespace easykey
 {
@@ -17,12 +18,12 @@ namespace easykey
 class ByteBuffer
 {
   public:
+    ByteBuffer(
+        const std::function<std::vector<std::uint8_t>(void)> source_trigger);
+
     std::uint32_t get_integer4();
     std::uint8_t get_integer1();
     std::vector<std::uint8_t> get_next(const std::uint32_t size);
-    void put_integer1(const std::uint8_t value);
-    void put_integer4(const std::uint32_t value);
-    void put_array(const std::uint8_t* array, const std::uint32_t size);
     bool has_content() const;
     std::uint32_t size() const;
 
@@ -32,6 +33,17 @@ class ByteBuffer
      * end(push)
      */
     std::queue<std::uint8_t> buffer;
+
+    /**
+     * If buffer is empty, or, the client requested more bytes than the
+     * available this function is executed
+     */
+    const std::function<std::vector<std::uint8_t>(void)> source_trigger;
+
+    /**
+     * Trigger source_trigger function and append data to the internal buffer
+     */
+    void ensure_has_requested(const std::uint32_t bytes_needed);
 };
 
 class EmptyBufferException : public std::runtime_error
