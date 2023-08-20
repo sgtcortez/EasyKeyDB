@@ -175,9 +175,6 @@ void Server::handle_request(ClientSocket *client)
      */
     client->iterations++;
 
-    // Reads the content from the buffer
-    client->read();
-
     // Send the message to the client
     receive_message_callback(*client);
 }

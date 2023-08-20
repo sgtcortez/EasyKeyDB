@@ -10,6 +10,7 @@
 #include <sys/time.h>    // For struct timeval
 #include <sys/types.h>
 #include <unistd.h>  // For close function
+#include <functional>
 #include <memory>
 #include <vector>  // For std::vector
 #include <string>  // For std::string
@@ -221,6 +222,7 @@ class ClientSocket : public Socket
     easykey::timestamp last_seen;
     std::uint32_t iterations;
 
+  public:
     /**
      * This buffer is where the data is stored after every socket read
      */
@@ -242,19 +244,6 @@ class ClientSocket : public Socket
     void write(const std::int32_t file_descriptor,
                off_t offset,
                const std::int64_t size) const;
-
-    /**
-     * Read from client socket buffer.
-     * May trigger the socket.read call
-     */
-    std::vector<uint8_t> read(std::uint32_t bytes);
-
-  private:
-    /**
-     * Reads the content of the socket buffer. And then, stores it into the
-     * client connection buffer
-     */
-    void read();
 };
 
 template <>
