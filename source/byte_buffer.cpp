@@ -75,7 +75,12 @@ void ByteBuffer::ensure_has_requested(const uint32_t size)
     // satisfy the requested amount
     if (buffer.size() < size)
     {
-        throw EmptyBufferException("Buffer is empty!");
+        const auto msg =
+            "Requested amount exceed the available in the buffer ...! Buffer "
+            "size: " +
+            to_string(buffer.size()) + " requested: " + to_string(size);
+        cerr << msg << endl;
+        throw EmptyBufferException(msg);
     }
 }
 
