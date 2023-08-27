@@ -2,6 +2,7 @@
 
 import os
 from os.path import join, getsize
+from sys import exit
 
 from_directory = input("Directory to traverse and get files: ")
 easykeyv1_write_bin = "./cli-write.out"
@@ -19,10 +20,12 @@ for root, directories, files in os.walk(from_directory):
         if pid > 0:
             # In the parent process
             # Just wait for the child process to finish
-            os.waitpid(pid, 0)
+            pid, status = os.waitpid(pid, 0)
+            if status != 0:
+                print(f"An error occured with child pid: {pid}, status: {status}")
+                exit(1)
         else:
             # In the child process
-            
             key = "file_" + str(index)
             path = "{}/{}".format(root, file)
 
