@@ -66,11 +66,34 @@ void ByteBuffer::ensure_has_requested(const uint32_t size)
         return;
     }
 
-    for (const auto& value : source_trigger())
+    while (true)
     {
-        buffer.push(value);
-    }
+        /**
+         * Request more data
+         */
+        const auto result = source_trigger();
+        /**
+         * There is no more data to be read
+         *
+         */
+        if (result.empty())
+        {
+            break;
+        }
 
+        for (const auto& value : result)
+        {
+            buffer.push(value);
+        }
+
+        /**
+         * Now, we satisfied the request amount
+         */
+        if (buffer.size() >= size)
+        {
+            break;
+        }
+    }
     // After triggering the source, still, there are no bytes available to
     // satisfy the requested amount
     if (buffer.size() < size)

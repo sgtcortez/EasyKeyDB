@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <arpa/inet.h>
+#include <bits/types/struct_timeval.h>
 #include <netinet/tcp.h>
 #include <chrono>
 #include <cstddef>
@@ -18,6 +19,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "socket.hpp"
 
 using namespace std;
 using namespace easykey;
@@ -137,6 +139,17 @@ void Server::stop()
 void Server::handle_new_connection()
 {
     unique_ptr<ClientSocket> client(socket.accept_connection());
+
+    struct timeval read_timeout;
+    read_timeout.tv_sec = 0;
+    // 300 milliseconds of read block timeout if needed ...
+    // This is needed, because the client can sends tons of KiB at one request,
+    // and the kernel might not be able to return everything at just once read
+    // system call
+    read_timeout.tv_usec = 1000 * 300;
+
+    client->set_option(Socket::OptionValue<struct timeval>(
+        read_timeout, Socket::Option<struct timeval>::READ_TIMEOUT));
 
     /**
      * Register the accepted socket to those epoll events

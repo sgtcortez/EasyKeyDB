@@ -1,6 +1,6 @@
 #include "socket.hpp"
 
-#include <fcntl.h>
+//#include <fcntl.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <cerrno>
@@ -103,15 +103,16 @@ ClientSocket *ServerSocket::accept_connection() const
         throw "Could not accept a connection!";
     }
 
-    if (fcntl(client_file_descriptor, F_SETFL, SOCK_NONBLOCK) < 0)
-    {
-        const auto error = "Could not set the socket file descriptor " +
-                           to_string(client_file_descriptor) +
-                           "as non blocking";
-        cerr << error << endl;
-        throw error;
-    }
-
+    /*
+        if (fcntl(client_file_descriptor, F_SETFL, SOCK_NONBLOCK) < 0)
+        {
+            const auto error = "Could not set the socket file descriptor " +
+                               to_string(client_file_descriptor) +
+                               "as non blocking";
+            cerr << error << endl;
+            throw error;
+        }
+    */
     string host_ip = inet_ntoa(client_address.sin_addr);
     uint16_t port = ntohs(client_address.sin_port);
     return new ClientSocket(client_file_descriptor, host_ip, port);
@@ -125,8 +126,8 @@ ClientSocket::ClientSocket(const int32_t file_descriptor,
       host_ip(host_ip),
       port(port),
       read_buffer([this]() -> vector<uint8_t> {
-          // 16 KiB buffer
-          uint8_t buffer[1024 * 16];
+          // 1MiB  buffer
+          uint8_t buffer[1024 * 1024 * 1];
           const int64_t buffer_size = sizeof(buffer) / sizeof(buffer[0]);
 
           // Uses the read system call to read from kernel buffer to our buffer
@@ -141,7 +142,7 @@ ClientSocket::ClientSocket(const int32_t file_descriptor,
               if (error_code == EAGAIN || error_code == EWOULDBLOCK)
               {
                   /**
-                   The file descriptor is market as non blocked and the read
+                   The file descriptor is market as non blocking and the read
                    would block because there are no bytes available or
                    Socket::MINIMUM_BYTES_TO_CONSIDER_BUFFER_AS_READABLE is in
                    use
