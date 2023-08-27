@@ -1,5 +1,6 @@
 #include "socket.hpp"
 
+#include <fcntl.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <cerrno>
@@ -100,6 +101,15 @@ ClientSocket *ServerSocket::accept_connection() const
     if (client_file_descriptor < 0)
     {
         throw "Could not accept a connection!";
+    }
+
+    if (fcntl(client_file_descriptor, F_SETFL, SOCK_NONBLOCK) < 0)
+    {
+        const auto error = "Could not set the socket file descriptor " +
+                           to_string(client_file_descriptor) +
+                           "as non blocking";
+        cerr << error << endl;
+        throw error;
     }
 
     string host_ip = inet_ntoa(client_address.sin_addr);
