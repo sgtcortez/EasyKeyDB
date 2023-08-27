@@ -58,7 +58,7 @@ void Server::start()
     /**
      * Register the server socket as this event in epoll
      */
-    epoll.add(socket.file_descriptor, EPOLLIN);
+    epoll.add(socket.file_descriptor, EPOLLIN | EPOLLET);
 
     socket.set_option(Socket::OptionValue<std::int32_t>{
         1, Socket::Option<int32_t>::REUSE_ADDRESS});
