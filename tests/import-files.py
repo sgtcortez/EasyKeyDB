@@ -3,12 +3,16 @@
 import os
 from os.path import join, getsize
 from sys import exit
+from uuid import uuid4
 
 from_directory = input("Directory to traverse and get files: ")
 easykeyv1_write_bin = "./cli-write.out"
 
 files_to_import = {}
 index = 0
+
+# Easy key does not allow key names with '-'
+prefix = str(uuid4()).replace('-', '_')
 
 for root, directories, files in os.walk(from_directory):
     for file in files:
@@ -26,7 +30,7 @@ for root, directories, files in os.walk(from_directory):
                 exit(1)
         else:
             # In the child process
-            key = "file_" + str(index)
+            key = f"{prefix}__{index}"
             path = "{}/{}".format(root, file)
 
             # https://docs.python.org/3/library/os.html#os.execv
