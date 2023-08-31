@@ -165,3 +165,24 @@ char * duplicate_string(const char* string)
     memcpy(output, string, size);
     return output;
 }
+
+void free_easykey_request(EasyKeyV1Request* request) 
+{
+    for (int index = 0; index < request->messages_number; index++)
+    {
+        Array *array = request->messages[index];
+        free(array->array);
+        free(array);
+        request->messages[index] = NULL;
+    }
+    free(request->messages);
+    request->messages = NULL;
+    free(request);
+}
+
+void free_easykey_response(EasyKeyV1Response* response)
+{
+    free(response->value.array);
+    response->value.array = NULL;
+    free(response);
+}
