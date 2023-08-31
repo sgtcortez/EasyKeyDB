@@ -116,8 +116,12 @@ int main(int argc, char** argv)
 
     EasyKeyV1Response* response = read_response(&server);
     print_server_response(response);
-    
-    if (response->status_code != OK)
+
+    bool success = response->status_code == OK; 
+    free_easykey_request(request);
+    free_easykey_response(response);
+
+    if (!success)
     {
         return 1;
     }

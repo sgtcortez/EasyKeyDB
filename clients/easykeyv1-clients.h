@@ -81,4 +81,8 @@ void print_server_response(const EasyKeyV1Response*);
 
 char * duplicate_string(const char *);
 
+void free_easykey_request(EasyKeyV1Request*);
+void free_easykey_response(EasyKeyV1Response*);
+
+
 #endif /* _EASYKEY_V1_CLIENT__ */
