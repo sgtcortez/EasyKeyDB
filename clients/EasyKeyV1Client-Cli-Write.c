@@ -30,13 +30,9 @@ int main(int argc, char** argv)
 {
     if (argc < 4)
     {
-        fprintf(stderr, "Usage: %s keyname value --file=[yes|no]\n", argv[0]);
+        fprintf(stderr, "Usage: %s [keyname1 value1 ... keynameN valueN] --file=[yes|no]\n", argv[0]);
         return 1;
     }
-    
-    char *key_name = argv[1];
-    char *value = argv[2];
-    bool is_file = strncmp(argv[3], "--file=yes", 10) == 0;
 
     int socket_fd = get_socket_fd();
 
@@ -55,75 +51,84 @@ int main(int argc, char** argv)
     }
 
 
-    EasyKeyV1Request* request = (EasyKeyV1Request*) calloc(1, sizeof(EasyKeyV1Request));
-    request->version = V1;
-    request->messages_number = 2;
-    request->messages = (Array**) calloc(request->messages_number, sizeof(Array*));
-    
-    request->messages[0] = (Array*) calloc(1, sizeof(Array));
-    request->messages[0]->size = strlen(key_name);
-    request->messages[0]->array = (unsigned char*) duplicate_string(key_name);    
+    bool is_file = strncmp(argv[argc - 1], "--file=yes", 10) == 0;
 
-    if (is_file)
+    int total_operations = 0;
+    int success_operations = 0;
+
+    for (int index = 1; index < argc - 1; index+=2)
     {
-        FILE *openfile = fopen(value, "rb");
-        if (openfile == NULL)
+        char *key_name = argv[index];
+        char *value = argv[index + 1];
+
+        EasyKeyV1Request* request = (EasyKeyV1Request*) calloc(1, sizeof(EasyKeyV1Request));
+        request->version = V1;
+        request->messages_number = 2;
+        request->messages = (Array**) calloc(request->messages_number, sizeof(Array*));
+        
+        request->messages[0] = (Array*) calloc(1, sizeof(Array));
+        request->messages[0]->size = strlen(key_name);
+        request->messages[0]->array = (unsigned char*) duplicate_string(key_name);    
+
+        if (is_file)
         {
-            perror("fopen:");
+            FILE *openfile = fopen(value, "rb");
+            if (openfile == NULL)
+            {
+                perror("fopen:");
+                return 1;
+            }
+
+            // Set the offset to the end of the file
+            fseek(openfile, 0, SEEK_END);
+
+            request->messages[1] = (Array*) calloc(1, sizeof(Array));
+            request->messages[1]->size = ftell(openfile);
+            request->messages[1]->array = (unsigned char*) calloc(1, request->messages[1]->size);
+
+            // to read from the beginning, we must set the file offset to the beginning
+            fseek(openfile, 0, SEEK_SET);
+
+            // reads the content of the file to the buffer
+            const size_t bytes_read = fread(request->messages[1]->array, sizeof(char), request->messages[1]->size, openfile);
+            if (bytes_read < 0)
+            {
+                perror("fread: ");
+                return 1;
+            }
+            if (bytes_read != request->messages[1]->size)
+            {
+                fprintf(stderr, "fread requested: %d but read only: %lu! This indicates an error!\n", request->messages[1]->size, bytes_read);
+                return 1;
+            }
+
+            // Close the opened file
+            fclose(openfile);
+        }
+        else 
+        {
+            // not a file, just copy what the client written in the command line argument
+            request->messages[1] = (Array*) calloc(1, sizeof(Array));
+            request->messages[1]->size = strlen(value);
+
+            // Needs to duplicate the string, because it will be freed later
+            request->messages[1]->array = (unsigned char *) duplicate_string(value);
+        }
+
+
+        if (!(write_request(request, &server)))
+        {
+            fprintf(stderr, "Could not send the request to the server ...\n");
             return 1;
         }
 
-        // Set the offset to the end of the file
-        fseek(openfile, 0, SEEK_END);
-
-        request->messages[1] = (Array*) calloc(1, sizeof(Array));
-        request->messages[1]->size = ftell(openfile);
-        request->messages[1]->array = (unsigned char*) calloc(1, request->messages[1]->size);
-
-        // to read from the beginning, we must set the file offset to the beginning
-        fseek(openfile, 0, SEEK_SET);
-
-        // reads the content of the file to the buffer
-        const size_t bytes_read = fread(request->messages[1]->array, sizeof(char), request->messages[1]->size, openfile);
-        if (bytes_read < 0)
-        {
-            perror("fread: ");
-            return 1;
-        }
-        if (bytes_read != request->messages[1]->size)
-        {
-            fprintf(stderr, "fread requested: %d but read only: %lu! This indicates an error!\n", request->messages[1]->size, bytes_read);
-            return 1;
-        }
-
-        // Close the opened file
-        fclose(openfile);
+        EasyKeyV1Response* response = read_response(&server);
+        print_server_response(response);
+        success_operations += response->status_code == OK ? 1 : 0;
+        total_operations++;
+        free_easykey_request(request);
+        free_easykey_response(response);
     }
-    else 
-    {
-        // not a file, just copy what the client written in the command line argument
-        request->messages[1] = (Array*) calloc(1, sizeof(Array));
-        request->messages[1]->size = strlen(value);
-        request->messages[1]->array = (unsigned char*)value;
-    }
-
-
-    if (!(write_request(request, &server)))
-    {
-        fprintf(stderr, "Could not send the request to the server ...\n");
-        return 1;
-    }
-
-    EasyKeyV1Response* response = read_response(&server);
-    print_server_response(response);
-
-    bool success = response->status_code == OK; 
-    free_easykey_request(request);
-    free_easykey_response(response);
-
-    if (!success)
-    {
-        return 1;
-    }
-    return 0;
+    // If all operations succeced, zero will be returned
+    return total_operations - success_operations; 
 }
