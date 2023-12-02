@@ -21,6 +21,7 @@ set(
     source/byte_buffer.cpp
     source/easykey.cpp
     source/server.cpp
+    source/io_notifier.cpp
     main.cpp
 )
 
