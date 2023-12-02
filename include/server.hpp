@@ -2,9 +2,9 @@
 
 #include "socket.hpp"
 #include "byte_buffer.hpp"
+#include "io_notifier.hpp"
 
 #include <cstdint>
-#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <cstdlib>
@@ -24,20 +24,6 @@ namespace easykey
 using ReceiveMessageCallback = std::function<void(ClientSocket&)>;
 using ClientConnectedCallback = std::function<void(const ClientSocket&)>;
 using ClientDisconnectedCallback = std::function<void(const ClientSocket&)>;
-
-class EpollHandler
-{
-  public:
-    EpollHandler(const std::uint16_t timeout);
-    ~EpollHandler();
-    bool add(std::int32_t file_descriptor, std::uint32_t events) const;
-    bool del(std::int32_t file_descriptor) const;
-    const std::vector<struct epoll_event> wait_for_events() const;
-
-  private:
-    std::uint32_t file_descriptor;
-    std::uint16_t timeout;
-};
 
 class Server
 {
@@ -97,6 +83,12 @@ class Server
     */
     std::unordered_map<std::int32_t, std::unique_ptr<ClientSocket>>
         current_connections;
+
+    /**
+     * The IO Multiplexer mechanism
+    */
+    IONotifier io_notifier;
+    
 };
 
 };  // namespace easykey

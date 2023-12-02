@@ -20,14 +20,10 @@
 #include <string>
 #include <vector>
 #include "socket.hpp"
+#include "io_notifier.hpp"
 
 using namespace std;
 using namespace easykey;
-
-/**
- * TODO: This should be defined by our user. And MUST not be hardcoded
- */
-static EpollHandler epoll(5000);
 
 Server::Server(const uint16_t port,
                const uint16_t pending_connections,
@@ -60,7 +56,7 @@ void Server::start()
     /**
      * Register the server socket as this event in epoll
      */
-    epoll.add(socket.file_descriptor, EPOLLIN | EPOLLET);
+    io_notifier.add_event(Event(socket.file_descriptor).add(EventType::READ));
 
     socket.set_option(Socket::OptionValue<std::int32_t>{
         1, Socket::Option<int32_t>::REUSE_ADDRESS});
@@ -79,7 +75,8 @@ void Server::start()
     uint16_t iterations = 0;
     do
     {
-        const auto events = epoll.wait_for_events();
+        const auto events =
+            io_notifier.wait_for_events(std::chrono::seconds(10));
         if (events.empty())
         {
             check_idle_connections();
@@ -92,18 +89,18 @@ void Server::start()
                 // server requested to stop
                 break;
             }
-
-            if (event.data.fd == socket.file_descriptor)
+            if (event.is_for(socket.file_descriptor))
             {
                 handle_new_connection();
             }
-            else if (event.events & EPOLLRDHUP)
+            else if (event.has(EventType::CLOSE_CONNECTION))
             {
-                handle_client_disconnected(event.data.fd);
+                handle_client_disconnected(event.file_descriptor);
             }
-            else if (event.events & EPOLLIN)
+            else if (event.has(EventType::READ))
             {
-                handle_request(current_connections.at(event.data.fd).get());
+                handle_request(
+                    current_connections.at(event.file_descriptor).get());
             }
         }
         iterations++;
@@ -125,7 +122,7 @@ void Server::start()
      * Removes the server socket from the epoll handler before closing epoll
      * file descriptor
      */
-    epoll.del(socket.file_descriptor);
+    io_notifier.delete_event(Event(socket.file_descriptor));
 }
 
 void Server::stop()
@@ -155,8 +152,10 @@ void Server::handle_new_connection()
      * Register the accepted socket to those epoll events
      * READ | Edge Triggered | WRITE | PEER SHUTDOW
      */
-    epoll.add(client->file_descriptor,
-              EPOLLIN | EPOLLET | EPOLLOUT | EPOLLRDHUP);
+    io_notifier.add_event(Event(client->file_descriptor)
+                              .add(EventType::READ)
+                              .add(EventType::CLOSE_CONNECTION)
+                              .add(EventType::WRITE));
 
     if (client_connected_callback)
     {
@@ -200,7 +199,7 @@ void Server::handle_client_disconnected(const std::int32_t file_descriptor)
         client_disconnected_callback(*client);
     }
 
-    epoll.del(file_descriptor);
+    io_notifier.delete_event(Event(file_descriptor));
     current_connections.erase(file_descriptor);
 }
 
@@ -227,65 +226,4 @@ void Server::check_idle_connections()
              << " due to inactively!" << endl;
         handle_client_disconnected(fd);
     }
-}
-
-EpollHandler::EpollHandler(const uint16_t timeout) : timeout(timeout)
-{
-    file_descriptor = epoll_create1(0);
-    if (file_descriptor < 0)
-    {
-        throw "Epoll Create!";
-    }
-}
-
-EpollHandler::~EpollHandler()
-{
-    close(file_descriptor);
-}
-
-bool EpollHandler::add(int32_t file_descriptor, uint32_t events) const
-{
-    struct epoll_event event;
-    memset(&event, 0, sizeof(struct epoll_event));
-    event.events = events;
-    event.data.fd = file_descriptor;
-    return epoll_ctl(this->file_descriptor,
-                     EPOLL_CTL_ADD,
-                     file_descriptor,
-                     &event);
-}
-
-bool EpollHandler::del(int32_t file_descriptor) const
-{
-    return epoll_ctl(this->file_descriptor,
-                     EPOLL_CTL_DEL,
-                     file_descriptor,
-                     nullptr);
-}
-
-const vector<struct epoll_event> EpollHandler::wait_for_events() const
-{
-    struct epoll_event events_buffer[32];
-    auto total = epoll_wait(file_descriptor,
-                            events_buffer,
-                            sizeof(events_buffer) / sizeof(events_buffer[0]),
-                            timeout);
-    if (total < 0)
-    {
-        cerr << "Epoll wait error!" << endl;
-        return {};
-    }
-    else if (total == 0)
-    {
-        cout << "Epoll Timeout!" << endl;
-        return {};
-    }
-
-    vector<struct epoll_event> events;
-    events.reserve(total);
-    for (auto index = 0; index < total; index++)
-    {
-        events.push_back(events_buffer[index]);
-    }
-    return events;
 }
